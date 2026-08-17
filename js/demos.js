@@ -134,100 +134,251 @@
      PART 1 · COLOUR
      ================================================================== */
 
-  /* ---- 1a. Three numbers from a whole spectrum, and metamerism ---- */
-  D.spectrum = function (root) {
-    const C = global.CIE, N = C.lambda.length;
-    let peak = 560, width = 60, mode = 'broad';
+
+  /* ---------- shared spectral helpers ---------- */
+
+  const spdGauss = (mu, s) => CIE.lambda.map(l => Math.exp(-0.5 * ((l - mu) / s) ** 2));
+
+  // paints the visible spectrum faintly behind a wavelength plot
+  function spectrumWash(g, x, y, iw, ih) {
+    const C = CIE, n = C.lambda.length;
+    for (let i = 0; i < iw; i++) {
+      const nm = C.lambda[0] + (i / iw) * (C.lambda[n - 1] - C.lambda[0]);
+      const c = IM.wavelengthRGB(Math.round(nm / 5) * 5);
+      g.fillStyle = `rgba(${c.map(Math.round).join(',')},.20)`;
+      g.fillRect(x + i, y, 1.5, ih);
+    }
+  }
+  const NM_LABELS = [['400', 0.03], ['500', .32], ['600', .61], ['700', .90]];
+
+  /* ---- 1a. Each of the three numbers is an overlap area ----
+     The integral I(λ)·S(λ)dλ is literally the area where the light and one
+     sensor's sensitivity overlap, so we draw that area rather than assert it. */
+  D.trichromacy = function (root) {
+    let peak = 560, width = 55;
 
     const spdCv = h('canvas', { class: 'plot' });
-    const cmfCv = h('canvas', { class: 'plot' });
-    const swA = h('div', { class: 'swatch', style: 'height:70px' });
-    const swB = h('div', { class: 'swatch', style: 'height:70px' });
-    const readout = h('div', { class: 'caption', style: 'margin-top:.4em' });
+    const overlapCv = [0, 1, 2].map(() => h('canvas', { class: 'plot' }));
+    const values = [0, 1, 2].map(() => h('div', { class: 'caption', style: 'margin-top:.2em' }));
+    const sw = h('div', { class: 'swatch', style: 'height:88px;width:96px' });
 
-    const spdFig = h('div', { class: 'figure' }, [spdCv,
-      h('div', { class: 'caption' }, ['the light arriving at the sensor — a value at every wavelength'])]);
-    const cmfFig = h('div', { class: 'figure' }, [cmfCv,
-      h('div', { class: 'caption' }, ['the three sensitivity curves — CIE 1931 standard observer'])]);
+    const CH = [
+      { key: 'x', name: 'X', colour: '#ff6b6b', fill: 'rgba(255,107,107,.32)' },
+      { key: 'y', name: 'Y', colour: '#6bd97f', fill: 'rgba(107,217,127,.32)' },
+      { key: 'z', name: 'Z', colour: '#6ea8fe', fill: 'rgba(110,168,254,.32)' }
+    ];
 
-    root.appendChild(h('div', { class: 'row', style: 'gap:1.2em;align-items:flex-start' }, [
-      h('div', { class: 'col', style: 'gap:.5em' }, [spdFig, cmfFig]),
-      h('div', { class: 'col', style: 'gap:.3em;min-width:8.5em' }, [
-        h('div', { style: 'width:150px' }, [swA]),
-        h('div', { class: 'swatch-lbl' }, ['smooth spectrum']),
-        h('div', { style: 'width:150px;margin-top:.5em' }, [swB]),
-        h('div', { class: 'swatch-lbl' }, ['3 narrow spikes']),
-      ])
+    root.appendChild(h('div', { class: 'figure', style: 'margin-bottom:.5em' }, [spdCv,
+      h('div', { class: 'caption' }, ['① the light: how much energy at every wavelength'])]));
+
+    const cols = CH.map((c, i) => h('div', { class: 'col', style: 'gap:.1em' }, [
+      overlapCv[i], values[i]
+    ]));
+    root.appendChild(h('div', { class: 'row', style: 'gap:.7em;align-items:center' }, [
+      h('div', { class: 'col', style: 'gap:.25em' }, [
+        h('div', { class: 'row', style: 'gap:.7em' }, cols),
+        h('div', { class: 'caption' }, [
+          '② each sensor multiplies the light by its own sensitivity — the shaded area is the answer'])
+      ]),
+      h('div', { class: 'arrow' }, ['→']),
+      h('div', { class: 'col', style: 'gap:.25em' }, [sw,
+        h('div', { class: 'caption', style: 'margin:0' }, ['③ the colour'])])
     ]));
     root.appendChild(h('div', { class: 'controls-row' }, [
-      buttons([{ label: 'Broad', value: 'broad' }, { label: 'Narrow', value: 'narrow' }], v => { mode = v; render(); }, 0).wrap,
       slider('peak λ', 420, 660, 5, peak, v => { peak = v; render(); }, v => v + 'nm').wrap,
-      slider('width', 12, 120, 2, width, v => { width = v; render(); }, v => v + 'nm').wrap
+      slider('width', 14, 120, 2, width, v => { width = v; render(); }, v => v + 'nm').wrap
     ]));
-    root.appendChild(readout);
-
-    // 3x3 solve by Cramer's rule — used to match the spike mixture to the smooth SPD
-    function solve3(M, v) {
-      const d = M[0] * (M[4] * M[8] - M[5] * M[7]) - M[1] * (M[3] * M[8] - M[5] * M[6]) + M[2] * (M[3] * M[7] - M[4] * M[6]);
-      if (Math.abs(d) < 1e-12) return [0, 0, 0];
-      const col = (j, w) => { const A = M.slice(); A[j] = w[0]; A[j + 3] = w[1]; A[j + 6] = w[2]; return A; };
-      const det = (A) => A[0] * (A[4] * A[8] - A[5] * A[7]) - A[1] * (A[3] * A[8] - A[5] * A[6]) + A[2] * (A[3] * A[7] - A[4] * A[6]);
-      return [det(col(0, v)) / d, det(col(1, v)) / d, det(col(2, v)) / d];
-    }
-
-    const gauss = (mu, s) => C.lambda.map(l => Math.exp(-0.5 * ((l - mu) / s) ** 2));
 
     function render() {
-      const w = mode === 'narrow' ? Math.min(width, 22) : width;
-      const spdA = gauss(peak, w);
-      const XYZ = IM.spectrumToXYZ(spdA);
+      const spd = spdGauss(peak, width);
+      const XYZ = IM.spectrumToXYZ(spd);
 
-      // a display's three primaries: narrow spikes at 450 / 540 / 610 nm
-      const prim = [gauss(450, 8), gauss(540, 8), gauss(610, 8)];
-      const P = prim.map(p => IM.spectrumToXYZ(p));
-      const M = [P[0][0], P[1][0], P[2][0],
-      P[0][1], P[1][1], P[2][1],
-      P[0][2], P[1][2], P[2][2]];
-      let wts = solve3(M, XYZ);
-      const feasible = wts.every(v => v > -1e-6);
-      wts = wts.map(v => Math.max(0, v));
-      const spdB = C.lambda.map((_, i) => wts[0] * prim[0][i] + wts[1] * prim[1][i] + wts[2] * prim[2][i]);
-      const XYZb = IM.spectrumToXYZ(spdB);
+      plot(spdCv, 560, 96, [{ y: spd, color: css('--accent-4'), width: 2.4, fill: 'rgba(217,143,208,.16)' }],
+        { min: 0, max: 1.06, bg: spectrumWash, labels: NM_LABELS });
 
-      const gain = 1 / Math.max(1e-6, XYZ[1]) * 0.85;
-      const rgbA = IM.xyzToSwatch(XYZ[0], XYZ[1], XYZ[2], gain);
-      const rgbB = IM.xyzToSwatch(XYZb[0], XYZb[1], XYZb[2], gain);
-      swA.style.background = `rgb(${rgbA.map(Math.round).join(',')})`;
-      swB.style.background = feasible ? `rgb(${rgbB.map(Math.round).join(',')})` : 'repeating-linear-gradient(45deg,#222,#222 6px,#333 6px,#333 12px)';
+      CH.forEach((c, i) => {
+        const curve = CIE[c.key];
+        const product = curve.map((v, k) => v * spd[k]);
+        plot(overlapCv[i], 176, 82, [
+          { y: curve, color: c.colour, width: 1.3, dash: [3, 3] },
+          { y: product, color: c.colour, width: 2, fill: c.fill }
+        ], { min: 0, max: 1.9 });
+        values[i].innerHTML =
+          `<b style="color:${c.colour};font-size:1.15em">${c.name} = ${XYZ[i].toFixed(3)}</b>`;
+      });
 
-      const specBg = (g, x, y, iw, ih) => {
-        for (let i = 0; i < iw; i++) {
-          const nm = C.lambda[0] + (i / iw) * (C.lambda[N - 1] - C.lambda[0]);
-          const c = IM.wavelengthRGB(Math.round(nm / 5) * 5);
-          g.fillStyle = `rgba(${c.map(Math.round).join(',')},.20)`;
-          g.fillRect(x + i, y, 1.5, ih);
-        }
-      };
-      const labels = [['400', 0.03], ['500', .32], ['600', .61], ['700', .90]];
-      plot(spdCv, 430, 118, [
-        { y: spdB, color: css('--accent-3'), width: 1.6, fill: 'rgba(127,214,168,.13)' },
-        { y: spdA, color: css('--accent-4'), width: 2.4 }
-      ], { min: 0, max: Math.max(1, ...spdB) * 1.08, bg: specBg, labels });
-      plot(cmfCv, 430, 96, [
-        { y: C.x, color: '#ff6b6b', width: 1.8 },
-        { y: C.y, color: '#6bd97f', width: 1.8 },
-        { y: C.z, color: '#6ea8fe', width: 1.8 }
-      ], { min: 0, max: 1.9, labels });
-
-      readout.innerHTML = feasible
-        ? `Both spectra integrate to <b>X=${XYZ[0].toFixed(3)} &nbsp;Y=${XYZ[1].toFixed(3)} &nbsp;Z=${XYZ[2].toFixed(3)}</b> — the sensor cannot tell them apart. <span class="mono" style="color:var(--accent-4)">— smooth</span> <span class="mono" style="color:var(--accent-3)">— 3 spikes</span>`
-        : `No positive mixture of these three primaries reaches this colour — it lies <b>outside the display's gamut</b>.`;
+      const gain = 0.85 / Math.max(1e-6, XYZ[1]);
+      const rgb = IM.xyzToSwatch(XYZ[0], XYZ[1], XYZ[2], gain);
+      sw.style.background = `rgb(${rgb.map(Math.round).join(',')})`;
     }
     render();
     return () => { };
   };
 
-  /* ---- 1b. One image in four colour spaces ---- */
+  /* ---- 1b. Metamers: two spectra the sensor cannot tell apart ----
+     Spectrum B is a mixture of three narrow display primaries, solved so that
+     it integrates to exactly the same X, Y, Z as spectrum A. */
+  D.metamers = function (root) {
+    let peak = 560;
+
+    const cvA = h('canvas', { class: 'plot' });
+    const cvB = h('canvas', { class: 'plot' });
+    // A single element painted with a hard-stop gradient, NOT two divs side by
+    // side: reveal scales the slide by a non-integer factor, so the boundary
+    // between two elements lands mid-pixel and gets antialiased into a visible
+    // hairline — precisely the seam this slide claims does not exist. With one
+    // gradient, identical colours either side blend to themselves.
+    const swPair = h('div', {
+      style: 'height:78px;width:244px;border:1px solid var(--line);border-radius:10px'
+    });
+    const readout = h('div', { class: 'caption', style: 'margin-top:.5em' });
+
+    root.appendChild(h('div', { class: 'row', style: 'gap:1.1em;align-items:center' }, [
+      h('div', { class: 'col', style: 'gap:.45em' }, [
+        h('div', { class: 'figure' }, [cvA, h('div', { class: 'caption' }, [
+          'A — one smooth hump, like daylight off a surface'])]),
+        h('div', { class: 'figure' }, [cvB, h('div', { class: 'caption' }, [
+          'B — three narrow spikes, like the pixels in this projector'])])
+      ]),
+      h('div', { class: 'arrow' }, ['→']),
+      h('div', { class: 'col', style: 'gap:.3em' }, [
+        swPair,
+        h('div', { class: 'swatch-lbl' }, ['A on the left, B on the right'])
+      ])
+    ]));
+    root.appendChild(h('div', { class: 'controls-row' }, [
+      slider('peak λ of spectrum A', 450, 640, 5, peak, v => { peak = v; render(); }, v => v + 'nm').wrap
+    ]));
+    root.appendChild(readout);
+
+    // 3x3 solve by Cramer's rule — finds the primary weights that match A's XYZ
+    function solve3(M, v) {
+      const det = (A) => A[0] * (A[4] * A[8] - A[5] * A[7]) - A[1] * (A[3] * A[8] - A[5] * A[6]) +
+        A[2] * (A[3] * A[7] - A[4] * A[6]);
+      const d = det(M);
+      if (Math.abs(d) < 1e-12) return [0, 0, 0];
+      const col = (j) => { const A = M.slice(); A[j] = v[0]; A[j + 3] = v[1]; A[j + 6] = v[2]; return A; };
+      return [det(col(0)) / d, det(col(1)) / d, det(col(2)) / d];
+    }
+
+    function render() {
+      const spdA = spdGauss(peak, 55);
+      const XYZ = IM.spectrumToXYZ(spdA);
+
+      const prim = [spdGauss(450, 8), spdGauss(540, 8), spdGauss(610, 8)];
+      const P = prim.map(p => IM.spectrumToXYZ(p));
+      const M = [P[0][0], P[1][0], P[2][0],
+      P[0][1], P[1][1], P[2][1],
+      P[0][2], P[1][2], P[2][2]];
+      let w = solve3(M, XYZ);
+      const feasible = w.every(v => v > -1e-6);
+      w = w.map(v => Math.max(0, v));
+      const spdB = CIE.lambda.map((_, i) => w[0] * prim[0][i] + w[1] * prim[1][i] + w[2] * prim[2][i]);
+      const XYZb = IM.spectrumToXYZ(spdB);
+
+      const top = Math.max(1.05, ...spdB) * 1.06;
+      plot(cvA, 430, 92, [{ y: spdA, color: css('--accent-4'), width: 2.4, fill: 'rgba(217,143,208,.16)' }],
+        { min: 0, max: top, bg: spectrumWash, labels: NM_LABELS });
+      plot(cvB, 430, 92, [{ y: spdB, color: css('--accent-3'), width: 2.2, fill: 'rgba(127,214,168,.16)' }],
+        { min: 0, max: top, bg: spectrumWash, labels: NM_LABELS });
+
+      const gain = 0.85 / Math.max(1e-6, XYZ[1]);
+      const cA = `rgb(${IM.xyzToSwatch(XYZ[0], XYZ[1], XYZ[2], gain).map(Math.round).join(',')})`;
+      const cB = `rgb(${IM.xyzToSwatch(XYZb[0], XYZb[1], XYZb[2], gain).map(Math.round).join(',')})`;
+      swPair.style.backgroundImage = feasible
+        ? `linear-gradient(90deg, ${cA} 0 50%, ${cB} 50% 100%)`
+        // out of gamut: A on the left, hatching showing through on the right
+        : `linear-gradient(90deg, ${cA} 0 50%, rgba(0,0,0,0) 50% 100%),` +
+        ` repeating-linear-gradient(45deg,#242833 0 6px,#343a48 6px 12px)`;
+
+      readout.innerHTML = feasible
+        ? `Both integrate to <b>X = ${XYZ[0].toFixed(3)}</b>, <b>Y = ${XYZ[1].toFixed(3)}</b>, ` +
+        `<b>Z = ${XYZ[2].toFixed(3)}</b>. Different light, identical numbers, <b>no visible seam</b>.`
+        : `No positive mixture of these three primaries reaches this colour — it is <b>outside the display's gamut</b>, ` +
+        `so no seam can be hidden here.`;
+    }
+    render();
+    return () => { };
+  };
+
+  /* ---- 1c. All four spaces, side by side, on one picture ----
+     Hue and the two opponent axes get their own colour maps, because they are
+     angles and signed axes rather than intensities — grey ramps hide that. */
+  D.colourContact = function (root) {
+    const cmapHue = (t) => IM.hsv2rgb(t * 360, 0.85, 0.95).map(Math.round);
+    const diverge = (neg, pos) => (t) => {
+      const g = [150, 150, 150], k = Math.abs(t - 0.5) * 2, end = t < 0.5 ? neg : pos;
+      return [0, 1, 2].map(c => Math.round(g[c] + (end[c] - g[c]) * k));
+    };
+    const cmapA = diverge([64, 190, 96], [244, 78, 78]);     // green ↔ red
+    const cmapB = diverge([80, 130, 235], [242, 206, 74]);   // blue  ↔ yellow
+
+    const SPACES = [
+      {
+        name: 'RGB', colour: '#6ea8fe', ch: ['R', 'G', 'B'],
+        fwd: (r, g, b) => [r, g, b],
+        disp: [{ min: 0, max: 255 }, { min: 0, max: 255 }, { min: 0, max: 255 }],
+        gist: '<b>All three look like the photo</b> — brightness is baked into every channel, so you cannot touch colour without touching brightness.'
+      },
+      {
+        name: 'HSV', colour: '#d98fd0', ch: ['H', 'S', 'V'],
+        fwd: (r, g, b) => IM.rgb2hsv(r, g, b),
+        disp: [{ min: 0, max: 360, cmap: cmapHue }, { min: 0, max: 1 }, { min: 0, max: 1 }],
+        gist: 'Which colour, how pure, how bright. <b>V holds the picture</b>; H is an angle round a colour wheel, so it wraps at 360°.'
+      },
+      {
+        name: 'XYZ', colour: '#7fd6a8', ch: ['X', 'Y', 'Z'],
+        fwd: (r, g, b) => IM.rgb2xyz(r, g, b),
+        disp: [{ min: 0, max: 1 }, { min: 0, max: 1 }, { min: 0, max: 1.1 }],
+        gist: 'What the standard eye responds to. <b>Y is exactly luminance</b>; X and Z are sensor responses, not viewable pictures.'
+      },
+      {
+        name: 'L*a*b*', colour: '#f7d774', ch: ['L*', 'a*', 'b*'],
+        fwd: (r, g, b) => IM.rgb2lab(r, g, b),
+        disp: [{ min: 0, max: 100 }, { min: -90, max: 90, cmap: cmapA }, { min: -90, max: 90, cmap: cmapB }],
+        gist: 'Lightness, then distance from grey along two opponent axes. <b>Colour is fully separated from brightness</b> — and equal steps look equally different.'
+      }
+    ];
+
+    const grid = h('div', { class: 'contact' });
+    root.appendChild(grid);
+    const origCv = h('canvas');
+    // capped to a channel cell's width — left to itself it fills the wide text
+    // column and pushes the fourth row off the bottom of the slide
+    grid.appendChild(h('div', { class: 'col', style: 'gap:.2em;width:120px;justify-self:start' }, [
+      origCv, h('div', { class: 'chname' }, ['the original'])]));
+    ['channel 1', 'channel 2', 'channel 3'].forEach(t =>
+      grid.appendChild(h('div', { class: 'chname', style: 'align-self:end' }, [t])));
+
+    const cells = SPACES.map(sp => {
+      grid.appendChild(h('div', {}, [
+        h('div', { class: 'sp-name', style: `color:${sp.colour}` }, [sp.name]),
+        h('div', { class: 'sp-int' })
+      ]));
+      return sp.ch.map(() => {
+        const cv = h('canvas');
+        const name = h('div', { class: 'chname' }, ['']);
+        grid.appendChild(h('div', { class: 'col', style: 'gap:.1em' }, [cv, name]));
+        return { cv, name };
+      });
+    });
+    // fill in the descriptions (they were appended above as empty divs)
+    grid.querySelectorAll('.sp-int').forEach((el, i) => el.innerHTML = SPACES[i].gist);
+
+    IMG('macaws', 260).then(img => {
+      IM.drawColor(origCv, img);
+      SPACES.forEach((sp, r) => {
+        const conv = IM.mapPixels(img, sp.fwd);
+        sp.ch.forEach((chName, c) => {
+          IM.draw(cells[r][c].cv, IM.channel(conv, c), sp.disp[c]);
+          cells[r][c].name.textContent = chName;
+        });
+      });
+    });
+    return () => { };
+  };
+
+  /* ---- 1d. One image in four colour spaces, one at a time ---- */
   D.colourSpaces = function (root) {
     const SZ = 250;
     let img = null, space = 'RGB';

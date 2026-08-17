@@ -117,91 +117,131 @@
   <p>An entire spectrum, collapsed into three numbers.</p>
 </section>
 
-<!-- SPECTRUM -->
+<!-- TRICHROMACY -->
 <section>
-  <h3>Light arrives as a spectrum — the sensor reports three numbers</h3>
-  <div class="eq math small" style="margin:-.2em 0 .4em;padding:.4em .9em">
-    \( I_R = \displaystyle\int I(\lambda)\,S_R(\lambda)\,d\lambda, \qquad
-       I_G = \int I(\lambda)\,S_G(\lambda)\,d\lambda, \qquad
-       I_B = \int I(\lambda)\,S_B(\lambda)\,d\lambda \)
-  </div>
-  <div class="demo" data-demo="spectrum"></div>
+  <h3>Three numbers from a whole spectrum</h3>
+  <p class="small dim" style="margin-top:-.35em">
+    Each number is the <b>area of the overlap</b> between the light and one sensor's sensitivity.</p>
+  <div class="demo" data-demo="trichromacy"></div>
   <div class="takeaway">
-    Three integrals throw almost everything away. Two completely different spectra that give
-    the same three numbers are <b>metamers</b> — and your screen relies on this, faking every
-    colour with just three narrow primaries.
+    <span class="mono">\( I_X = \int I(\lambda)\,S_X(\lambda)\,d\lambda \)</span> —
+    the integral sign just says <b>"multiply the two curves and measure the area under the
+    result"</b>. Do it three times and the entire spectrum is gone, replaced by three numbers.
   </div>
   <aside class="notes">
-    Run the peak slider first without commentary and let them watch the green curve (the
-    3-spike mixture) re-solve itself to keep matching. Then say what is happening: the spike
-    weights are solved so the two spectra integrate to identical X, Y, Z.
+    Walk the three numbered steps in order and do not rush: ① is the light, ② is the three
+    overlaps, ③ is the colour. The dashed line in each small panel is that sensor's
+    sensitivity; the solid shaded region is the light multiplied by it. The number underneath
+    is the area of the shaded region — that IS the integral, and saying so out loud is the
+    whole point of the slide.
 
-    The three curves in the lower panel are the CIE 1931 2-degree standard observer functions —
-    the same figure that is in the worksheet, and a standardised stand-in for cone sensitivity.
-    Peak of y-bar at 555 nm is why we are most sensitive to green.
+    Now drag the peak slider slowly from blue to red and narrate what the areas do: as the
+    hump slides right, the blue overlap collapses and the red one grows. Students who find
+    integrals abstract can still see an area shrink.
 
-    Push the peak to the far red or far blue and the spike mixture eventually needs a negative
-    weight — the swatch goes hatched. That is a gamut boundary, and it is why a monitor cannot
-    show every colour you can see.
+    The three curves are the CIE 1931 2-degree standard observer functions — the same figure
+    that is in the worksheet, and a standardised stand-in for cone sensitivity. The peak of
+    y-bar at 555 nm is why we are most sensitive to green.
 
     If asked "why three and not four?" — because we have three cone types. Some people have
     four (tetrachromacy); most animals differ. The number 3 is biology, not physics.
   </aside>
 </section>
 
-<!-- FOUR SPACES -->
+<!-- METAMERS -->
 <section>
-  <h3>Four ways to write down the same three numbers</h3>
-  <table class="tbl small">
-    <tr><th>Space</th><th>Axes</th><th>Good for</th><th>Watch out</th></tr>
-    <tr><td><b style="color:#6ea8fe">RGB</b></td><td>red, green, blue</td>
-        <td>storage, display — it is what the sensor and screen speak</td>
-        <td>device-dependent; all three channels move together with brightness</td></tr>
-    <tr><td><b style="color:#d98fd0">HSV</b></td><td>hue, saturation, value</td>
-        <td>"select everything reddish" — thresholding by colour</td>
-        <td>hue is an angle, so it wraps; meaningless when saturation ≈ 0</td></tr>
-    <tr><td><b style="color:#7fd6a8">XYZ</b></td><td>the standard observer's response</td>
-        <td>device-<b>in</b>dependent reference; every other space is defined through it</td>
-        <td>not perceptually uniform; Y alone is luminance</td></tr>
-    <tr><td><b style="color:#f7d774">L*a*b*</b></td><td>lightness, green–red, blue–yellow</td>
-        <td>colour edits and distances — equal steps look equally different</td>
-        <td>a* and b* are unbounded in theory; needs a white point (D65 here)</td></tr>
-  </table>
+  <h3>Two different lights, one colour</h3>
+  <p class="small dim" style="margin-top:-.35em">
+    If only the three areas survive, then any two spectra with the same three areas are
+    <b>indistinguishable</b>.</p>
+  <div class="demo" data-demo="metamers"></div>
   <div class="takeaway">
-    They hold the <b>same information</b>, re-parameterised. Choose the space in which your
-    question becomes a simple operation on one axis.
+    Spectra that differ but look identical are <b>metamers</b>. This is not a curiosity —
+    it is the only reason screens work: a projector has just three narrow primaries, yet it can
+    forge almost any colour by matching the three areas.
   </div>
   <aside class="notes">
-    Emphasise the last line — this is the whole reason the lecture spends time on colour spaces.
-    "Make this image less red" is three coupled changes in RGB and one subtraction in Lab.
+    Point at the two swatches on the right before you say anything. They are drawn edge to edge
+    on purpose — ask the room whether they can see the join. They cannot.
 
-    The lecture's ordering is the useful one: RGB is what you get, HSV is an attempt at human
-    vocabulary, XYZ is the physical reference standard, Lab is the perceptual one.
+    Then point at the two plots on the left, which could hardly be more different: one smooth
+    hump versus three isolated spikes. Different light, identical numbers.
+
+    Say plainly that this is happening right now: the projector showing this slide has three
+    primaries, and every colour on it is a metamer of the real thing.
+
+    Drag the slider to the far red or far blue and the spike mixture eventually needs a negative
+    weight, which is impossible — the swatch goes hatched. That is a gamut boundary, and it is
+    why a monitor cannot show every colour you can see. It is also the same boundary they will
+    see drawn as an actual shape on the Lab plane a few slides later.
+
+    Worth one sentence: metamerism is why two garments can match in the shop and clash outside.
+    The shop's lights and daylight have different spectra.
   </aside>
 </section>
 
-<!-- COLOUR SPACES LAB -->
+<!-- FOUR SPACES, SIDE BY SIDE -->
 <section>
-  <h3>One image, four colour spaces</h3>
-  <p class="small dim" style="margin-top:-.3em">
-    Same picture, four decompositions — then converted straight back.</p>
-  <div class="demo" data-demo="colourSpaces"></div>
+  <h3>One photo, four ways to split it into three numbers</h3>
+  <div class="demo" data-demo="colourContact"></div>
   <div class="takeaway">
-    In <b>RGB</b> every channel looks like a grey version of the photo — they are highly
-    correlated. In <b>HSV</b> and <b>Lab</b>, brightness lives in one channel and colour in the
-    others, which is exactly the separation that makes editing easy.
+    <b>Same information, different axes</b> — each is an invertible function of the others.
+    What changes is <b>which question becomes easy</b>: RGB smears brightness through all three
+    channels; HSV and Lab put it in one and leave the other two for colour alone.
   </div>
   <aside class="notes">
-    This is worksheet exercise 1 (the XYZ and Lab conversions), done live. Click through
-    RGB → Lab and ask them to point at where the two birds separate most cleanly: it is the
-    a* channel, green-to-red, where the blue-and-gold macaw and the red macaw sit at opposite
-    ends.
+    Read the picture row by row rather than reading the text out.
 
-    Point out the Y channel of XYZ looks like a sensible greyscale — that is because Y is
-    defined as luminance. Compare to X and Z, which look strange on their own.
+    RGB — cover the labels and ask which channel is which. They cannot reliably tell, because
+    all three are the same photo at slightly different contrasts. That is the point: brightness
+    is smeared through every channel, so you cannot change colour without changing brightness.
 
-    The right-hand figure is the round trip. It looks identical — but it is not bit-identical,
-    which is the next slide but one.
+    HSV — V is the whole picture again, but now H and S carry colour on their own. The red bird
+    and the blue-and-gold bird separate cleanly in H.
+
+    XYZ — Y looks like a sensible greyscale because Y *is* luminance, by definition. X and Z
+    look strange alone; they are sensor responses, not pictures.
+
+    Lab — L* is the greyscale, a* has the red bird at one extreme and the leaves at the other,
+    b* picks out the gold breast. This is the row to linger on, because the a* axis is what the
+    Lab-plane slide, the colour-swap slide and worksheet exercise 2 all act on.
+
+    Say why the display maps differ: H, a* and b* are shown through colour maps rather than grey
+    ramps because H is an angle and a*/b* are signed opponent axes — a grey ramp would put "very
+    green" and "very red" at opposite ends of a scale that looks like brightness, which is
+    exactly the wrong intuition. L*, S, V, X, Y, Z are genuine intensities, so they stay grey.
+
+    The equivalence claim in the takeaway is worth defending if challenged: the transforms are
+    bijective on real numbers. In 8-bit storage they are NOT lossless, which is the round trip
+    on the next slide and the gotchas slide after it.
+  </aside>
+</section>
+
+<!-- ROUND TRIP -->
+<section>
+  <h3>There and back again</h3>
+  <p class="small dim" style="margin-top:-.3em">
+    Pick a space, read off the real channel ranges, then convert straight back to RGB.</p>
+  <div class="demo" data-demo="colourSpaces"></div>
+  <div class="takeaway">
+    The picture on the right is the round trip, and it looks perfect. It is <b>not</b> bit-identical:
+    each hop re-quantises to 8 bits. Note the ranges under each channel too —
+    <span class="mono">H</span> is 0–360° here, but OpenCV has to squeeze it into a byte.
+  </div>
+  <aside class="notes">
+    This slide is worksheet exercise 1, done live — the XYZ and Lab conversions and the trip
+    back. The previous slide answered "what do the channels look like"; this one answers
+    "does anything get lost".
+
+    Two things to draw out, since the decomposition itself is already covered:
+
+    1. The ranges printed under each channel. They are all different — 0–255, 0–360, 0–1,
+    0–100, ±90 — and every one of them has to survive being stored in a byte. That is the
+    setup for the gotchas slide.
+
+    2. The round trip. Ask whether the right-hand image is identical to the left-hand one.
+    They will say yes. It is not, and the measured numbers are two slides away. Get them to
+    predict which space loses the most before you show it.
   </aside>
 </section>
 
