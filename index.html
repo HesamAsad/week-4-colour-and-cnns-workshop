@@ -600,7 +600,10 @@
     the first plausible answer. Answering out of order is how image 3 gets scored as
     "reflectance only".
 
-    Image 1 — illumination changes. Same square, same wood, flat board: R and N are constant.
+    Image 1 — illumination changes. The arrow crosses the boundary of the QUEEN'S CAST SHADOW,
+      staying on one continuous light square the whole way. Same wood and a flat board, so R and
+      N never move; only the amount of light landing on the surface does. Point at the shadow
+      and at the queen so the cause is named, not just the category.
     Image 2 — reflectance changes. Crossing from a light square to a dark one on the same flat,
       evenly lit board.
     Image 3 — reflectance AND the surface normal change; the light source is constant. The arrow
@@ -745,9 +748,10 @@
   <h3>An MLP starts by throwing the geometry away</h3>
   <div class="demo" data-demo="flatten"></div>
   <div class="takeaway">
-    <span class="mono">Flatten()</span> turns 28×28 into a list of 784 numbers with no record
-    of which were neighbours. A fully-connected layer treats pixel (0,0) and pixel (27,27) as
-    exactly as related as two adjacent pixels — <b>which is to say, not related at all</b>.
+    The shuffled digit is unreadable to <i>you</i> — but that is not the point.
+    <b>Train an MLP on shuffled images and it scores exactly the same</b>, because
+    <span class="mono">Flatten()</span> already threw away which pixels were neighbours.
+    The CNN is the one that breaks. <b>Its advantage is a restriction, not extra power.</b>
   </div>
   <aside class="notes">
     The shuffle argument is the cleanest way to make this concrete, and it is a real result:

@@ -20,7 +20,10 @@
   const _cache = new Map();
 
   function loadColor(dataURL, size) {
-    const key = 'rgb:' + dataURL.slice(0, 64) + '@' + size;
+    // Key on the WHOLE data URI. Truncating it collides: every image here is a
+    // JPEG written by the same encoder, so the first 64 characters are an
+    // identical header and all of them would share one cache entry.
+    const key = 'rgb:' + size + ':' + dataURL;
     if (_cache.has(key)) return _cache.get(key);
     const p = new Promise((resolve) => {
       const im = new Image();

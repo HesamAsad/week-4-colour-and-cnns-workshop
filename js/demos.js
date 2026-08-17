@@ -1021,8 +1021,9 @@
       {
         img: 'chess1', mark: [0.463, 0.667],
         title: 'Image 1',
-        answer: '<b style="color:var(--accent-5)">Illumination changes.</b> One flat square, one wood finish — ' +
-          'so R and N are constant across the arrow. What changes is how much light lands there.'
+        answer: '<b style="color:var(--accent-5)">Illumination changes.</b> The arrow crosses the edge of the ' +
+          'shadow the queen casts, along one continuous light square — same wood, same flat board, so R and N ' +
+          'are constant. Only how much light reaches the surface changes.'
       },
       {
         img: 'chess2', mark: [0.384, 0.698],
@@ -1122,40 +1123,95 @@
   };
 
   /* ---- 3b. Flattening throws the geometry away ---- */
+  /* The point is NOT "shuffling wrecks the picture" — everyone can see that. It
+     is that the wreckage costs the MLP nothing and costs the CNN everything. So
+     the demo tracks one 3x3 neighbourhood through the shuffle and states a
+     verdict for each model, rather than leaving the moral implicit. */
   D.flatten = function (root) {
-    let perm = null, scrambled = false;
-    const a = figure('the image a CNN sees', 150);
-    const b = figure('the 784-vector an MLP sees', 150);
-    const c = figure('', 150);
-    const readout = h('div', { class: 'caption', style: 'margin-top:.35em' });
+    const SCALE = 5, PX = 28 * SCALE;
+    let perm = null, inv = null, scrambled = false;
 
-    root.appendChild(h('div', { class: 'row', style: 'gap:1.3em;align-items:flex-start' }, [
-      a.wrap, h('div', { class: 'arrow' }, ['→']), b.wrap, h('div', { class: 'arrow' }, ['⇄']), c.wrap
+    const mk = (cap) => {
+      const cv = h('canvas', { class: 'pixelated', style: `width:${PX}px;height:${PX}px` });
+      const c = h('div', { class: 'caption' }, [cap]);
+      return { cv, cap: c, wrap: h('div', { class: 'figure' }, [cv, c]) };
+    };
+    const before = mk('the image');
+    const after = mk('');
+    const verdict = h('div', { class: 'col', style: 'gap:.5em;align-items:stretch;min-width:15em' });
+
+    root.appendChild(h('div', { class: 'row', style: 'gap:1.1em;align-items:center' }, [
+      before.wrap, h('div', { class: 'arrow' }, ['→']), after.wrap,
+      h('div', { style: 'width:1px;height:120px;background:var(--line)' }), verdict
     ]));
-    root.appendChild(h('div', { class: 'controls-row' }, [
-      h('button', { class: 'btn', onclick: () => { scrambled = !scrambled; draw(); } }, ['New shuffle'])
-    ]));
-    root.appendChild(readout);
+    const btn = h('button', { class: 'btn' }, ['Shuffle all 784 pixels']);
+    root.appendChild(h('div', { class: 'controls-row' }, [btn]));
+    btn.addEventListener('click', () => {
+      scrambled = !scrambled;
+      btn.textContent = scrambled ? 'Undo the shuffle' : 'Shuffle all 784 pixels';
+      btn.classList.toggle('active', scrambled);
+      if (scrambled) {
+        perm = Array.from({ length: 784 }, (_, i) => i);
+        for (let i = 783; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0;[perm[i], perm[j]] = [perm[j], perm[i]]; }
+      } else {
+        perm = Array.from({ length: 784 }, (_, i) => i);
+      }
+      inv = new Int32Array(784);
+      for (let i = 0; i < 784; i++) inv[perm[i]] = i;
+      draw();
+    });
 
     const d0 = CNN.digits[6];
+    // a 3x3 neighbourhood sitting on the stroke, tracked through the shuffle
+    const PATCH = [];
+    { const py = 14, px = 13; for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) PATCH.push((py + j) * 28 + px + i); }
+
+    function paintDigit(cv, data, marks) {
+      const off = document.createElement('canvas');
+      IM.draw(off, { w: 28, h: 28, data }, { min: 0, max: 255, cmap: IM.cmapBinary });
+      cv.width = PX; cv.height = PX;
+      const g = cv.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      g.drawImage(off, 0, 0, PX, PX);
+      g.strokeStyle = css('--accent-2'); g.lineWidth = 2;
+      marks.forEach(p => {
+        const x = (p % 28) * SCALE, y = ((p / 28) | 0) * SCALE;
+        g.strokeRect(x + 0.5, y + 0.5, SCALE - 1, SCALE - 1);
+      });
+    }
+
     function draw() {
       const img = digitImg(d0);
-      IM.draw(a.canvas, img, { min: 0, max: 255, cmap: IM.cmapBinary });
-      a.canvas.style.width = '150px'; a.canvas.classList.add('pixelated');
-      // the flattened vector, drawn as 28 rows of 28 laid end to end
-      IM.draw(b.canvas, { w: 784, h: 1, data: img.data }, { min: 0, max: 255, cmap: IM.cmapBinary });
-      b.canvas.style.width = '150px'; b.canvas.style.height = '26px';
-      perm = perm && !scrambled ? perm : Array.from({ length: 784 }, (_, i) => i);
-      if (scrambled) for (let i = 783; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0;[perm[i], perm[j]] = [perm[j], perm[i]]; }
+      paintDigit(before.cv, img.data, PATCH);
       const sc = new Float32Array(784);
-      for (let i = 0; i < 784; i++) sc[i] = img.data[perm[i]];
-      IM.draw(c.canvas, { w: 28, h: 28, data: sc }, { min: 0, max: 255, cmap: IM.cmapBinary });
-      c.canvas.style.width = '150px'; c.canvas.classList.add('pixelated');
-      c.cap.textContent = scrambled
-        ? 'the same 784 numbers, permuted' : 'not shuffled yet — press the button';
-      readout.innerHTML = scrambled
-        ? 'Apply that shuffle to <b>every</b> image and an MLP learns exactly as well — it never knew which pixels were neighbours. A conv layer would be destroyed.'
-        : 'Press the button: shuffling the 784 entries costs the MLP nothing, because <b>Flatten</b> already discarded which pixels touch which.';
+      const p = perm || Array.from({ length: 784 }, (_, i) => i);
+      const iv = inv || Int32Array.from({ length: 784 }, (_, i) => i);
+      for (let i = 0; i < 784; i++) sc[i] = img.data[p[i]];
+      paintDigit(after.cv, sc, PATCH.map(q => iv[q]));
+
+      before.cap.innerHTML = 'the image · <span style="color:var(--accent-2)">one 3×3 patch marked</span>';
+      after.cap.innerHTML = scrambled
+        ? 'the same 784 numbers, reordered'
+        : 'not shuffled yet — press the button';
+
+      verdict.innerHTML = '';
+      const row = (who, tick, colour, text) => {
+        const el = h('div', { class: 'card', style: `padding:.5em .7em;border-color:${colour}44` });
+        el.innerHTML = `<div style="font-size:.6em;font-weight:600;color:${colour};letter-spacing:.06em">` +
+          `${tick}&nbsp; ${who}</div><div class="tiny dim" style="margin-top:.2em;line-height:1.45">${text}</div>`;
+        verdict.appendChild(el);
+      };
+      if (scrambled) {
+        row('MLP — unaffected', '✓', 'var(--accent-3)',
+          'Its first layer already connects <b>every</b> pixel to every unit. Permute the inputs and it just permutes its weights to match — <b>identical accuracy</b>.');
+        row('CNN — destroyed', '✗', '#ff6b6b',
+          'Its kernels only ever look at <b>neighbours</b>. The nine marked pixels are now scattered across the image, so there is no longer a patch to convolve.');
+      } else {
+        row('MLP — sees 784 loose numbers', '·', 'var(--ink-dim)',
+          '<span class="mono">Flatten()</span> keeps no record of which pixels touched which.');
+        row('CNN — sees a neighbourhood', '·', 'var(--ink-dim)',
+          'The marked 3×3 patch is what one kernel reads at a time.');
+      }
     }
     draw();
     return () => { };
