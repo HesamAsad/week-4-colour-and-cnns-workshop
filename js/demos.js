@@ -384,39 +384,80 @@
     return () => { };
   };
 
-  /* ---- 1e. The a*b* plane at a chosen lightness ---- */
+  /* ---- 1e. The a*b* plane at a chosen lightness ----
+     The colour field is rendered at SS x the displayed size and let the browser
+     downscale it, which is what anti-aliases the ragged gamut boundary. Axes and
+     labels are drawn afterwards in CSS units, so text stays crisp. */
   D.labPlane = function (root) {
-    let L = 65;
-    const cv = h('canvas');
-    const fig = h('div', { class: 'figure' }, [cv, h('div', { class: 'caption' }, [
-      'the a*–b* plane. Grey sits at the centre; inverting a* reflects left↔right'])]);
+    const CSS = 300, SS = 3, N = CSS * SS, RANGE = 110;
+    let L = 65, pending = null;
+
+    const cv = h('canvas', { style: `width:${CSS}px;height:${CSS}px` });
+    const cap = h('div', { class: 'caption' }, ['']);
+    const fig = h('div', { class: 'figure' }, [cv, cap]);
     root.appendChild(h('div', { class: 'row' }, [fig]));
     root.appendChild(h('div', { class: 'controls-row' }, [
-      slider('L* (lightness)', 20, 95, 1, L, v => { L = v; paint(); }).wrap
+      // repaint on the next frame so dragging the slider stays smooth
+      slider('L* (lightness)', 20, 95, 1, L, v => {
+        L = v;
+        if (pending === null) pending = requestAnimationFrame(() => { pending = null; paint(); });
+      }).wrap
     ]));
 
     function paint() {
-      const N = 220, R = 110;
-      cv.width = N; cv.height = N; cv.style.width = '250px';
-      const g = cv.getContext('2d'), out = g.createImageData(N, N);
-      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-        const a = (x - N / 2) / (N / 2) * R, b = (N / 2 - y) / (N / 2) * R;
-        const [r, gg, bb] = IM.lab2rgb(L, a, b);
-        const i = (y * N + x) * 4;
-        // outside the sRGB gamut this Lab colour is not displayable — fade it out
-        out.data[i] = clamp(r, 0, 255); out.data[i + 1] = clamp(gg, 0, 255); out.data[i + 2] = clamp(bb, 0, 255);
-        out.data[i + 3] = IM.labInGamut(L, a, b) ? 255 : 30;
+      cv.width = N; cv.height = N;
+      const g = cv.getContext('2d');
+      const out = g.createImageData(N, N);
+      const d = out.data;
+      // out-of-gamut pixels keep a faint hint of their direction over the panel
+      // colour, rather than a muddy half-transparent wash
+      const BG = [16, 20, 28], TINT = 0.16;
+      let inside = 0;
+
+      for (let y = 0; y < N; y++) {
+        const b = (N / 2 - y) / (N / 2) * RANGE;
+        for (let x = 0; x < N; x++) {
+          const a = (x - N / 2) / (N / 2) * RANGE;
+          const lin = IM.lab2linRGB(L, a, b);         // one conversion, both answers
+          const ok = IM.inGamut(lin);
+          const i = (y * N + x) * 4;
+          if (ok) {
+            inside++;
+            d[i] = IM.lin2srgb(lin[0]) * 255;
+            d[i + 1] = IM.lin2srgb(lin[1]) * 255;
+            d[i + 2] = IM.lin2srgb(lin[2]) * 255;
+          } else {
+            for (let c = 0; c < 3; c++) {
+              const v = IM.lin2srgb(clamp(lin[c], 0, 1)) * 255;
+              d[i + c] = BG[c] + (v - BG[c]) * TINT;
+            }
+          }
+          d[i + 3] = 255;
+        }
       }
       g.putImageData(out, 0, 0);
-      g.strokeStyle = 'rgba(232,236,243,.35)'; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(0, N / 2); g.lineTo(N, N / 2); g.moveTo(N / 2, 0); g.lineTo(N / 2, N); g.stroke();
-      g.font = '11px ' + css('--mono'); g.fillStyle = css('--ink-dim');
-      g.textAlign = 'left'; g.fillText('−a* green', 3, N / 2 - 5);
-      g.textAlign = 'right'; g.fillText('red +a*', N - 3, N / 2 - 5);
-      g.textAlign = 'center'; g.fillText('+b* yellow', N / 2, 12); g.fillText('−b* blue', N / 2, N - 4);
+
+      // overlay in CSS units — text renders at SS x device resolution, so it stays sharp
+      g.setTransform(SS, 0, 0, SS, 0, 0);
+      const M = CSS / 2;
+      g.strokeStyle = 'rgba(232,236,243,.30)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(0, M); g.lineTo(CSS, M); g.moveTo(M, 0); g.lineTo(M, CSS); g.stroke();
+      // neutral grey sits exactly at the origin — the fixed point of the a* flip
+      g.fillStyle = 'rgba(232,236,243,.9)';
+      g.beginPath(); g.arc(M, M, 2.6, 0, 6.284); g.fill();
+      g.font = '11px ' + css('--mono');
+      g.fillStyle = css('--ink-dim');
+      g.textAlign = 'left'; g.fillText('−a* green', 4, M - 6);
+      g.textAlign = 'right'; g.fillText('red +a*', CSS - 4, M - 6);
+      g.textAlign = 'center'; g.fillText('+b* yellow', M, 13); g.fillText('−b* blue', M, CSS - 5);
+      g.setTransform(1, 0, 0, 1, 0, 0);
+
+      const pct = 100 * inside / (N * N);
+      cap.innerHTML = `a*–b* plane at <b>L* = ${L}</b> · the solid region is what sRGB can actually show ` +
+        `(${pct.toFixed(0)}% of this square)`;
     }
     paint();
-    return () => { };
+    return () => { if (pending !== null) cancelAnimationFrame(pending); };
   };
 
   /* ==================================================================

@@ -180,13 +180,15 @@
   const rgb2lab = (r, g, b) => xyz2lab(...rgb2xyz(r, g, b));
   const lab2rgb = (L, a, b) => xyz2rgb(...lab2xyz(L, a, b));
 
-  // True when a Lab colour has a real representation inside the sRGB cube.
-  // This has to be tested on the LINEAR rgb, before lin2srgb clamps it —
-  // otherwise every colour looks in-gamut.
-  function labInGamut(L, a, b) {
-    const lin = mat3(M_XYZ2RGB, ...lab2xyz(L, a, b));
-    return lin.every(c => c >= -0.002 && c <= 1.002);
-  }
+  // Linear (pre-gamma) sRGB for a Lab colour. Components outside [0,1] mean the
+  // colour is outside the sRGB gamut — test here, before lin2srgb clamps it,
+  // or everything looks in-gamut. Callers that need both the colour and the
+  // gamut answer should use this once rather than calling both helpers.
+  const lab2linRGB = (L, a, b) => mat3(M_XYZ2RGB, ...lab2xyz(L, a, b));
+  const inGamut = (lin) => lin[0] >= -0.002 && lin[0] <= 1.002 &&
+    lin[1] >= -0.002 && lin[1] <= 1.002 &&
+    lin[2] >= -0.002 && lin[2] <= 1.002;
+  const labInGamut = (L, a, b) => inGamut(lab2linRGB(L, a, b));
 
   // H in 0..360, S and V in 0..1  (OpenCV stores H/2 in a byte — see gotchas)
   function rgb2hsv(r, g, b) {
@@ -359,7 +361,8 @@
 
   global.IM = {
     loadColor, toGray, draw, drawColor, mapPixels, channel, cmapBinary, cmapHeat,
-    srgb2lin, lin2srgb, rgb2xyz, xyz2rgb, xyz2lab, lab2xyz, rgb2lab, lab2rgb, labInGamut,
+    srgb2lin, lin2srgb, rgb2xyz, xyz2rgb, xyz2lab, lab2xyz, rgb2lab, lab2rgb,
+    lab2linRGB, inGamut, labInGamut,
     rgb2hsv, hsv2rgb, spectrumToXYZ, xyzToSwatch, wavelengthRGB,
     shadeSphere, conv2dValid, relu, maxpool2, denseSoftmax, slice
   };
