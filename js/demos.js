@@ -749,16 +749,21 @@
   /* ---- 2a. The diffuse reflectance model, one term at a time ---- */
   D.lambert = function (root) {
     let ang = 35, ilum = 1.0, albedo = 0.75, tint = 'white';
-    const SZ = 210;
+    const SZ = 200, GW = 268, GH = 196, PW = 268, PH = 196;
     const sphere = figure('a matte sphere, one light source', SZ);
-    const geom = h('canvas', { class: 'plot' });
-    const geomFig = h('div', { class: 'figure' }, [geom,
-      h('div', { class: 'caption' }, ['N·L = cos θ — brightness falls off with the angle to the light'])]);
-    const readout = h('div', { class: 'caption', style: 'margin-top:.3em' });
+    const geom = h('canvas', { class: 'plot', style: `width:${GW}px;height:${GH}px` });
+    const curve = h('canvas', { class: 'plot', style: `width:${PW}px;height:${PH}px` });
+    const geomCap = h('div', { class: 'caption' });
+    geomCap.innerHTML = 'the dot product is a <b>projection</b>: how much of L lies along N';
+    const geomFig = h('div', { class: 'figure' }, [geom, geomCap]);
+    const curveFig = h('div', { class: 'figure' }, [curve,
+      h('div', { class: 'caption' }, ['…and past 90° the surface faces away, so it gets nothing'])]);
+    const readout = h('div', { class: 'caption', style: 'margin-top:.4em' });
 
-    root.appendChild(h('div', { class: 'row', style: 'gap:1.6em' }, [sphere.wrap, geomFig]));
+    root.appendChild(h('div', { class: 'row', style: 'gap:1.1em;align-items:center' },
+      [sphere.wrap, geomFig, curveFig]));
     root.appendChild(h('div', { class: 'controls-row' }, [
-      slider('light direction', -80, 80, 1, ang, v => { ang = v; paint(); }, v => v + '°').wrap,
+      slider('light direction', -115, 115, 1, ang, v => { ang = v; paint(); }, v => v + '°').wrap,
       slider('light intensity', 0.15, 1.4, 0.05, ilum, v => { ilum = v; paint(); }, v => v.toFixed(2)).wrap,
       slider('surface reflectance', 0.08, 1, 0.02, albedo, v => { albedo = v; paint(); }, v => v.toFixed(2)).wrap,
       buttons([{ label: 'white light', value: 'white' }, { label: 'warm light', value: 'warm' },
@@ -766,51 +771,139 @@
     ]));
     root.appendChild(readout);
 
+    // a line with a solid arrowhead on the far end
+    function arrow(g, x1, y1, x2, y2, colour, w) {
+      const a = Math.atan2(y2 - y1, x2 - x1), head = 9;
+      g.strokeStyle = colour; g.lineWidth = w; g.lineCap = 'round';
+      g.beginPath();
+      g.moveTo(x1, y1);
+      g.lineTo(x2 - Math.cos(a) * head * 0.8, y2 - Math.sin(a) * head * 0.8);
+      g.stroke();
+      g.fillStyle = colour;
+      g.beginPath();
+      g.moveTo(x2, y2);
+      g.lineTo(x2 - head * Math.cos(a - 0.4), y2 - head * Math.sin(a - 0.4));
+      g.lineTo(x2 - head * Math.cos(a + 0.4), y2 - head * Math.sin(a + 0.4));
+      g.closePath(); g.fill();
+      g.lineCap = 'butt';
+    }
+
+    function ctx2d(cv, W, H) {
+      const dpr = Math.min(2, window.devicePixelRatio || 1) * 1.5;
+      cv.width = W * dpr; cv.height = H * dpr;
+      const g = cv.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, W, H);
+      return g;
+    }
+
     function paint() {
       const a = ang * Math.PI / 180;
-      const dir = [Math.sin(a), 0.30, Math.cos(a)];
-      const n = Math.hypot(...dir);
-      const L = dir.map(v => v / n);
+      // The light lies in the x–z plane, so N·L at the point facing the camera is
+      // exactly cos(ang). An out-of-plane tilt would look prettier but would make
+      // the number in the readout disagree with the diagram beside it.
+      const L = [Math.sin(a), 0, Math.cos(a)];
+      const ndl = Math.max(0, Math.cos(a));
       const lightRGB = { white: [1, 1, 1], warm: [1.15, .92, .62], blue: [.62, .82, 1.2] }[tint];
-      const img = IM.shadeSphere(SZ, [albedo, albedo * .82, albedo * .62],
-        lightRGB.map(v => v * ilum), L, 0.04);
-      IM.drawColor(sphere.canvas, img);
+      IM.drawColor(sphere.canvas, IM.shadeSphere(SZ, [albedo, albedo * .82, albedo * .62],
+        lightRGB.map(v => v * ilum), L, 0.04));
       sphere.canvas.style.width = SZ + 'px';
 
-      // the cos-theta curve
-      const W = 250, H = 150;
-      geom.width = W * 2; geom.height = H * 2;
-      geom.style.width = W + 'px'; geom.style.height = H + 'px';
-      const g = geom.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0);
-      g.clearRect(0, 0, W, H);
-      const cx = W / 2, cy = H * 0.72, R = 46;
-      g.strokeStyle = css('--line'); g.lineWidth = 1;
-      g.beginPath(); g.moveTo(cx - 90, cy); g.lineTo(cx + 90, cy); g.stroke();   // surface
-      g.strokeStyle = css('--accent-3'); g.lineWidth = 2.5;                       // normal N
-      g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx, cy - R); g.stroke();
-      const lx = cx + R * Math.sin(a), ly = cy - R * Math.cos(a);
-      g.strokeStyle = css('--accent-5'); g.lineWidth = 2.5;                       // light L
-      g.beginPath(); g.moveTo(cx, cy); g.lineTo(lx, ly); g.stroke();
-      g.beginPath(); g.arc(cx, cy, 20, -Math.PI / 2, -Math.PI / 2 + a, a < 0); g.strokeStyle = 'rgba(154,167,186,.7)'; g.lineWidth = 1.2; g.stroke();
-      g.font = '11px ' + css('--mono'); g.textAlign = 'center';
-      g.fillStyle = css('--accent-3'); g.fillText('N', cx, cy - R - 6);
-      g.fillStyle = css('--accent-5'); g.fillText('L', lx + 10 * Math.sign(ang || 1), ly - 6);
-      g.fillStyle = css('--ink-dim'); g.fillText('θ', cx + 12 * Math.sign(ang || 1), cy - 26);
-      // cos curve
-      g.strokeStyle = 'rgba(110,168,254,.9)'; g.lineWidth = 2; g.beginPath();
-      for (let i = 0; i <= 100; i++) {
-        const t = -90 + i * 1.8, x = 10 + i * (W - 20) / 100, y = 32 - Math.max(0, Math.cos(t * Math.PI / 180)) * 22;
-        i ? g.lineTo(x, y) : g.moveTo(x, y);
-      }
-      g.stroke();
-      const mx = 10 + (ang + 90) / 180 * (W - 20), my = 32 - Math.max(0, Math.cos(a)) * 22;
-      g.fillStyle = css('--accent'); g.beginPath(); g.arc(mx, my, 3.5, 0, 6.284); g.fill();
+      /* ---------- geometry: N, L, theta, and the projection ---------- */
+      const g = ctx2d(geom, GW, GH);
+      const cx = GW / 2, cy = GH * 0.80, R = 92;
 
-      const ndl = Math.max(0, Math.cos(a));
-      readout.innerHTML = `at the point facing you: <span class="mono">N·L = cos ${Math.abs(ang)}° = ` +
-        `<b style="color:var(--accent)">${ndl.toFixed(2)}</b></span> &nbsp;·&nbsp; ` +
-        `<span class="mono">I<sub>L</sub> = <b style="color:var(--accent-5)">${ilum.toFixed(2)}</b></span> &nbsp;·&nbsp; ` +
-        `<span class="mono">R = <b style="color:var(--accent-2)">${albedo.toFixed(2)}</b></span> &nbsp;⟶&nbsp; ` +
+      g.strokeStyle = 'rgba(154,167,186,.55)'; g.lineWidth = 1.4;   // the surface
+      g.beginPath(); g.moveTo(cx - 108, cy); g.lineTo(cx + 108, cy); g.stroke();
+      g.strokeStyle = 'rgba(154,167,186,.28)'; g.lineWidth = 1;      // hatching under it
+      for (let x = -104; x <= 100; x += 13) {
+        g.beginPath(); g.moveTo(cx + x, cy); g.lineTo(cx + x - 6, cy + 7); g.stroke();
+      }
+      g.setLineDash([3, 4]); g.strokeStyle = 'rgba(154,167,186,.22)';  // unit circle: |N| = |L| = 1
+      g.beginPath(); g.arc(cx, cy, R, Math.PI, 2 * Math.PI); g.stroke();
+      g.setLineDash([]);
+
+      const lx = cx + R * Math.sin(a), ly = cy - R * Math.cos(a);
+      const projLen = R * Math.cos(a);                               // signed: negative when facing away
+
+      // the projection of L onto N, drawn before the vectors so they sit on top
+      if (projLen > 0) {
+        g.strokeStyle = 'rgba(110,168,254,.85)'; g.lineWidth = 7; g.lineCap = 'butt';
+        g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx, cy - projLen); g.stroke();
+      }
+      g.setLineDash([4, 4]); g.strokeStyle = 'rgba(232,236,243,.45)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(lx, ly); g.lineTo(cx, cy - projLen); g.stroke();
+      g.setLineDash([]);
+
+      arrow(g, cx, cy, cx, cy - R, css('--accent-3'), 2.6);          // N
+      arrow(g, cx, cy, lx, ly, css('--accent-5'), 2.6);              // L
+
+      // theta arc
+      g.strokeStyle = 'rgba(232,236,243,.6)'; g.lineWidth = 1.3;
+      g.beginPath(); g.arc(cx, cy, 30, -Math.PI / 2, -Math.PI / 2 + a, a < 0); g.stroke();
+
+      g.font = '600 13px ' + css('--font'); g.textAlign = 'center';
+      g.fillStyle = css('--accent-3'); g.fillText('N', cx, cy - R - 9);
+      g.fillStyle = css('--accent-5');
+      g.fillText('L', lx + 13 * Math.sign(Math.sin(a) || 1), ly - 8);
+      g.fillStyle = 'rgba(232,236,243,.75)'; g.font = '12px ' + css('--font');
+      g.fillText('θ', cx + 44 * Math.sin(a / 2), cy - 44 * Math.cos(a / 2) + 4);
+      if (projLen > 0) {
+        // parked well to the right of the theta arc so the two never collide
+        g.fillStyle = css('--accent'); g.font = '600 12px ' + css('--mono');
+        g.textAlign = 'left';
+        g.fillText(`N·L = ${ndl.toFixed(2)}`, cx + 56, cy - projLen / 2 + 4);
+      } else {
+        g.fillStyle = css('--ink-faint'); g.font = '12px ' + css('--font');
+        g.textAlign = 'center';
+        g.fillText('N·L ≤ 0 — no light reaches it', cx, cy - R - 12);
+      }
+
+      /* ---------- the cos curve, with real axes ---------- */
+      const p = ctx2d(curve, PW, PH);
+      const m = { l: 34, r: 12, t: 16, b: 30 };
+      const iw = PW - m.l - m.r, ih = PH - m.t - m.b;
+      const X = d => m.l + (d + 130) / 260 * iw;
+      const Y = v => m.t + ih - v * ih;
+
+      p.strokeStyle = 'rgba(43,53,70,.9)'; p.lineWidth = 1;          // gridlines
+      p.font = '10px ' + css('--mono'); p.fillStyle = css('--ink-faint');
+      [0, 0.5, 1].forEach(v => {
+        p.beginPath(); p.moveTo(m.l, Y(v)); p.lineTo(m.l + iw, Y(v)); p.stroke();
+        p.textAlign = 'right'; p.fillText(v.toFixed(1), m.l - 6, Y(v) + 3);
+      });
+      p.textAlign = 'center';
+      [-90, -45, 0, 45, 90].forEach(d => {
+        p.beginPath(); p.moveTo(X(d), m.t + ih); p.lineTo(X(d), m.t + ih + 4); p.stroke();
+        p.fillText(d + '°', X(d), m.t + ih + 16);
+      });
+
+      // shaded area under max(0, cos)
+      p.beginPath(); p.moveTo(X(-130), Y(0));
+      for (let d = -130; d <= 130; d += 2) p.lineTo(X(d), Y(Math.max(0, Math.cos(d * Math.PI / 180))));
+      p.lineTo(X(130), Y(0)); p.closePath();
+      p.fillStyle = 'rgba(110,168,254,.16)'; p.fill();
+      p.beginPath();
+      for (let d = -130; d <= 130; d += 2) {
+        const y = Y(Math.max(0, Math.cos(d * Math.PI / 180)));
+        d === -130 ? p.moveTo(X(d), y) : p.lineTo(X(d), y);
+      }
+      p.strokeStyle = css('--accent'); p.lineWidth = 2.2; p.stroke();
+
+      // the current angle
+      p.setLineDash([3, 3]); p.strokeStyle = 'rgba(232,236,243,.4)'; p.lineWidth = 1;
+      p.beginPath(); p.moveTo(X(ang), Y(0)); p.lineTo(X(ang), Y(ndl));
+      p.lineTo(m.l, Y(ndl)); p.stroke(); p.setLineDash([]);
+      p.fillStyle = css('--accent-3');
+      p.beginPath(); p.arc(X(ang), Y(ndl), 4.5, 0, 6.284); p.fill();
+      p.fillStyle = css('--ink-faint'); p.font = '10px ' + css('--font');
+      p.textAlign = 'left'; p.fillText('N·L', 4, m.t - 5);
+      p.textAlign = 'center'; p.fillText('angle between N and L', m.l + iw / 2, PH - 4);
+
+      readout.innerHTML = `<span class="mono">N·L = max(0, cos ${Math.abs(ang)}°) = ` +
+        `<b style="color:var(--accent)">${ndl.toFixed(2)}</b></span> &nbsp;×&nbsp; ` +
+        `<span class="mono">I<sub>L</sub> = <b style="color:var(--accent-5)">${ilum.toFixed(2)}</b></span> &nbsp;×&nbsp; ` +
+        `<span class="mono">R = <b style="color:var(--accent-2)">${albedo.toFixed(2)}</b></span> &nbsp;=&nbsp; ` +
         `<span class="mono">I<sub>D</sub> = <b style="color:var(--accent-3)">${(ndl * ilum * albedo).toFixed(3)}</b></span>`;
     }
     paint();

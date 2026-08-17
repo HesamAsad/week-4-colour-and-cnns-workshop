@@ -459,8 +459,23 @@
     is the entire shading model.
   </div>
   <aside class="notes">
-    Drag the direction slider and let them watch the terminator sweep across the sphere. Then
-    make the point that the camera never moves in this demo and would not matter if it did —
+    Three panels, read left to right: the scene, the geometry, the falloff.
+
+    The middle panel is the one to teach from. N and L are both unit vectors — that is what the
+    dashed semicircle is for — so the dot product is exactly the length of the blue bar: the
+    shadow L casts onto N. That is what a dot product IS, and students who have only ever seen
+    it as "multiply and add" often have not been told. Drag the direction slider and watch the
+    bar shorten as L swings away.
+
+    Then push past 90°. The bar disappears, the panel says N·L ≤ 0, and the right-hand curve
+    goes flat at zero. That flat region is the max(0, ·) in the model — a surface facing away
+    receives nothing, and there is no such thing as negative light. It is the only non-linear
+    thing on this slide, and it is what makes the sharp terminator on the sphere.
+
+    Note the readout says max(0, cos θ), not cos θ. At 105° the cosine really is −0.26; the
+    zero is the clamp, not the arithmetic. Worth saying if anyone is checking on a calculator.
+
+    Then make the point that the camera never moves in this demo and would not matter if it did —
     that is what "diffuse" means, and it is why Lambertian is the easy case.
 
     Turn R down and I_L up so the sphere returns to the same brightness. Ask: has anything about
