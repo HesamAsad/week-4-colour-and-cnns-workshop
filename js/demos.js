@@ -387,25 +387,49 @@
     let yaw = -0.62, pitch = 0.42, drag = null;
     const SZ = 268;
 
-    // sample the RGB cube's surface once
-    const pts = [];
-    const N = 38;
+    // Sample the RGB cube's surface as a grid, then keep the grid CELLS, not just
+    // the sample points: drawing filled quads gives a solid surface, where a point
+    // cloud leaves gaps wherever the mapping into HSV or Lab stretches it.
+    const N = 26;
+    const verts = [];                                  // one entry per grid vertex
+    const quads = [];                                  // {v: [4 vertex indices], css}
+
+    const coordsOf = (c) => {
+      const [r, g, b] = c.map(t => t * 255);
+      const [H, S, V] = IM.rgb2hsv(r, g, b);
+      const [L, A, B] = IM.rgb2lab(r, g, b);
+      const th = H * Math.PI / 180;
+      return {
+        rgb: [c[0] * 2 - 1, c[1] * 2 - 1, c[2] * 2 - 1],
+        hsv: [S * Math.cos(th), S * Math.sin(th), V * 2 - 1],
+        lab: [A / 108, B / 108, L / 50 - 1]
+      };
+    };
+    const cubePoint = (face, u, v) => {
+      const axis = face >> 1, lo = face & 1, c = [0, 0, 0];
+      c[axis] = lo ? 0 : 1;
+      c[(axis + 1) % 3] = u; c[(axis + 2) % 3] = v;
+      return c;
+    };
+
     for (let face = 0; face < 6; face++) {
-      const axis = face >> 1, lo = face & 1;
-      for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
-        const u = i / N, v = j / N, c = [0, 0, 0];
-        c[axis] = lo ? 0 : 1;
-        c[(axis + 1) % 3] = u; c[(axis + 2) % 3] = v;
-        const [r, g, b] = c.map(t => t * 255);
-        const [H, S, V] = IM.rgb2hsv(r, g, b);
-        const [L, A, B] = IM.rgb2lab(r, g, b);
-        const th = H * Math.PI / 180;
-        pts.push({
-          css: `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`,
-          rgb: [c[0] * 2 - 1, c[1] * 2 - 1, c[2] * 2 - 1],
-          hsv: [S * Math.cos(th), S * Math.sin(th), V * 2 - 1],
-          lab: [A / 108, B / 108, L / 50 - 1]
-        });
+      const base = verts.length;
+      for (let i = 0; i <= N; i++)
+        for (let j = 0; j <= N; j++)
+          verts.push(coordsOf(cubePoint(face, i / N, j / N)));
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+          const k = base + i * (N + 1) + j;
+          // fill colour comes from the cell's centre, so each quad is flat-shaded
+          const [r, g, b] = cubePoint(face, (i + 0.5) / N, (j + 0.5) / N).map(t => Math.round(t * 255));
+          const lo = face & 1;
+          quads.push({
+            // lo faces have their outward normal opposite to du x dv, so their
+            // winding has to be reversed for backface culling to agree with them
+            v: lo ? [k, k + N + 1, k + N + 2, k + 1] : [k, k + 1, k + N + 2, k + N + 1],
+            css: `rgb(${r},${g},${b})`
+          });
+        }
       }
     }
 
@@ -441,7 +465,7 @@
         ]);
       })));
     root.appendChild(h('div', { class: 'caption', style: 'margin-top:.5em;text-align:center' }, [
-      'Every dot is the same colour in all three pictures — drag any one of them to rotate all three together.'
+      'Every patch of colour appears in all three pictures — drag any one of them to rotate all three together.'
     ]));
 
     // drag anywhere rotates all three, because they are one object
@@ -495,13 +519,38 @@
           g.fillText(name, cx + b[0] * R * 1.1, cyy - b[1] * R * 1.1 + 3);
         });
 
-        // painter's algorithm — far points first
-        const proj = pts.map(p => { const q = project(p[view.key]); return { q, css: p.css }; });
-        proj.sort((a, b) => a.q[2] - b.q[2]);
-        const s = 3.4;
-        for (const { q, css: col } of proj) {
-          g.fillStyle = col;
-          g.fillRect(cx + q[0] * R - s / 2, cyy - q[1] * R - s / 2, s, s);
+        // project every vertex once, then paint the quads back to front
+        const P = new Array(verts.length);
+        for (let i = 0; i < verts.length; i++) {
+          const q = project(verts[i][view.key]);
+          P[i] = [cx + q[0] * R, cyy - q[1] * R, q[2]];
+        }
+        // Cull back-facing quads by the sign of their projected area. These solids
+        // are convex (cube, cylinder) or near enough (the Lab blob), so this drops
+        // about half the draw calls without opening holes.
+        const order = [];
+        for (let i = 0; i < quads.length; i++) {
+          const v = quads[i].v;
+          const a = P[v[0]], b = P[v[1]], c = P[v[2]];
+          const area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+          if (area >= 0) continue;          // keep front faces only
+          order.push({ i, d: a[2] + b[2] + c[2] + P[v[3]][2] });
+        }
+        order.sort((a, b) => a.d - b.d);
+
+        for (const { i } of order) {
+          const qd = quads[i], v = qd.v;
+          g.beginPath();
+          g.moveTo(P[v[0]][0], P[v[0]][1]);
+          g.lineTo(P[v[1]][0], P[v[1]][1]);
+          g.lineTo(P[v[2]][0], P[v[2]][1]);
+          g.lineTo(P[v[3]][0], P[v[3]][1]);
+          g.closePath();
+          g.fillStyle = qd.css;
+          // stroking with the fill colour closes the hairline gaps that
+          // antialiasing leaves between neighbouring quads
+          g.strokeStyle = qd.css; g.lineWidth = 1;
+          g.fill(); g.stroke();
         }
       });
     }
@@ -1011,7 +1060,7 @@
     function render() {
       const cse = CASES[idx];
       ansBox.innerHTML = shown ? cse.answer
-        : '<b>Ask in order:</b> is this the same surface? is it facing the same way? is it getting the same light? ' +
+        : 'Is this the same surface? Is it facing the same way? Is it getting the same light? ' +
         'At least one of R, N or I<sub>L</sub> has to move to explain the change — and sometimes more than one does.';
       revealBtn.textContent = shown ? 'Hide answer' : 'Reveal answer';
       revealBtn.classList.toggle('active', shown);
