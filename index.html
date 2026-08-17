@@ -217,6 +217,43 @@
   </aside>
 </section>
 
+<!-- GEOMETRY OF THE THREE SPACES -->
+<section>
+  <h3>The same colours, three shapes</h3>
+  <p class="small dim" style="margin-top:-.35em">
+    Every dot below is one colour. The three pictures plot the <b>identical set of dots</b>
+    against different axes.</p>
+  <div class="demo" data-demo="colourGeometry"></div>
+  <div class="takeaway">
+    <b>RGB and Lab are both rectangular</b> — three perpendicular axes; only the meaning of the
+    axes changes. <b>HSV is the polar one</b>: hue is an angle, so it wraps.
+    Lab has a polar form too, <b>LCh</b>, where chroma is the radius and hue the angle —
+    that is Lab's cylinder, and it is what "how colourful, and which colour" really means.
+  </div>
+  <aside class="notes">
+    Drag one of the three and all three rotate together, because they are literally the same
+    point set — the surface of the RGB cube, replotted.
+
+    That correspondence is exact, not approximate, and it is worth saying: the cube's three
+    faces where a coordinate equals 1 become the <b>lid</b> of the HSV cylinder (V = 1), and the
+    three faces where a coordinate equals 0 become its <b>outer wall</b> (S = 1). HSV is not a
+    different set of colours, it is the cube in polar coordinates.
+
+    A CORRECTION worth making explicitly, because it is a common and sticky misconception:
+    Lab is NOT a spherical system. It is rectangular, exactly like RGB — L* up, a* and b*
+    perpendicular. What makes it different from RGB is not its geometry but what the axes
+    measure. If someone wants the "round" version of Lab, that is LCh: same space, polar
+    coordinates in the a*b* plane, C = sqrt(a*^2 + b*^2) and h = atan2(b*, a*).
+
+    Then point at the Lab picture and ask why it is lumpy while the other two are neat. Because
+    the neatness of the cube and the cylinder is an artefact of the coordinates, not of colour:
+    RGB draws a cube because we DEFINED the axes to be the three lights. Lab's axes were fitted
+    to human perception instead, so the set of colours a screen can make lands in it as an
+    awkward blob. The gamut slide coming up is a horizontal slice through exactly this solid —
+    say so, and the earlier faded region stops being mysterious.
+  </aside>
+</section>
+
 <!-- ROUND TRIP -->
 <section>
   <h3>There and back again</h3>
@@ -280,9 +317,30 @@
     matching green, and greys are left untouched.
   </div>
   <aside class="notes">
-    Drag L* up and down and point at the faded region — those are Lab colours with no sRGB
-    equivalent. Lab is bigger than any display gamut, which is a feature: it can describe
-    colours your screen cannot show.
+    Drag L* up and down and watch the solid region shrink as you approach white — this is a
+    horizontal slice through the lumpy Lab solid from the geometry slide.
+
+    Be careful how you describe the faded area, because students reasonably ask "are there
+    colours RGB cannot show?" The answer is YES, but the faded region here is two different
+    things mixed together:
+
+    1. Real colours that sRGB cannot reach. Any three primaries span a TRIANGLE in the
+    chromaticity diagram, while the set of visible colours is a curved horseshoe — and a
+    triangle cannot cover a curve. Concretely, NO pure single-wavelength colour is inside sRGB:
+    a 520 nm laser green, a deep spectral cyan and a saturated violet are all outside it. Wider
+    gamuts (Display P3, Rec.2020) reach more of them; printers reach a different set again,
+    which is why print proofing exists.
+
+    2. Coordinates that are not colours at all. Lab is a mathematical space, so a triple like
+    L* = 65, a* = 105, b* = −105 is a perfectly good set of numbers that no physical light can
+    produce. A good chunk of the corners of this square are in that category.
+
+    So: "faded = your screen cannot show it" is the safe statement, and it is what the caption
+    says. Do not say "faded = colours you can see but your screen can't" — that is only true of
+    part of it.
+
+    The percentage is of THIS square, which is an arbitrary ±110 window, so do not let it be
+    quoted as "sRGB covers N% of colours". It is there to show the gamut shrinking with L*.
 
     The centre-is-grey fact is the key to the next slide. Because grey is the fixed point,
     inverting a* leaves the lighting and the neutral parts of the scene alone, and only

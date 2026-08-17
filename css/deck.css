@@ -326,11 +326,12 @@ mjx-container[jax="SVG"][display="true"] { margin: .35em 0 !important; }
   width: 100%; height: auto; display: block;
   border-radius: 5px; border: 1px solid var(--line); background: #000;
 }
-.contact .sp-name {
+/* Not scoped to .contact — the colour-geometry slide reuses them too. */
+.sp-name {
   font-size: .58em; font-weight: 600; letter-spacing: .08em; margin-bottom: .1em;
 }
-.contact .sp-int { font-size: .46em; color: var(--ink-dim); line-height: 1.4; }
-.contact .chname {
+.sp-int { font-size: .46em; color: var(--ink-dim); line-height: 1.4; }
+.chname {
   font-size: .44em; text-align: center; color: var(--ink-dim);
   font-family: var(--mono); letter-spacing: .04em; line-height: 1.2;
 }

@@ -378,7 +378,138 @@
     return () => { };
   };
 
-  /* ---- 1d. One image in four colour spaces, one at a time ---- */
+  /* ---- 1d. The same colours, three coordinate systems ----
+     One point set throughout: the surface of the RGB cube. Replotted in HSV
+     cylindrical coordinates it becomes the cylinder exactly (the cube's
+     max=1 faces are the lid, its min=0 faces the wall), and replotted in Lab
+     it becomes the irregular solid whose cross-section the gamut slide draws. */
+  D.colourGeometry = function (root) {
+    let yaw = -0.62, pitch = 0.42, drag = null;
+    const SZ = 268;
+
+    // sample the RGB cube's surface once
+    const pts = [];
+    const N = 38;
+    for (let face = 0; face < 6; face++) {
+      const axis = face >> 1, lo = face & 1;
+      for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+        const u = i / N, v = j / N, c = [0, 0, 0];
+        c[axis] = lo ? 0 : 1;
+        c[(axis + 1) % 3] = u; c[(axis + 2) % 3] = v;
+        const [r, g, b] = c.map(t => t * 255);
+        const [H, S, V] = IM.rgb2hsv(r, g, b);
+        const [L, A, B] = IM.rgb2lab(r, g, b);
+        const th = H * Math.PI / 180;
+        pts.push({
+          css: `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`,
+          rgb: [c[0] * 2 - 1, c[1] * 2 - 1, c[2] * 2 - 1],
+          hsv: [S * Math.cos(th), S * Math.sin(th), V * 2 - 1],
+          lab: [A / 108, B / 108, L / 50 - 1]
+        });
+      }
+    }
+
+    const VIEWS = [
+      {
+        key: 'rgb', title: 'RGB — a cube', colour: '#6ea8fe',
+        axes: [['R', [1, 0, 0]], ['G', [0, 1, 0]], ['B', [0, 0, 1]]],
+        gist: 'Three perpendicular axes, one per light. Corners are the primaries; the grey ramp is the diagonal from black to white.'
+      },
+      {
+        key: 'hsv', title: 'HSV — a cylinder', colour: '#d98fd0',
+        axes: [['S', [1, 0, 0]], ['', [0, 1, 0]], ['V', [0, 0, 1]]],
+        gist: 'The same cube in polar coordinates: hue is the <b>angle</b> round, saturation the <b>radius</b> out, value the <b>height</b> up.'
+      },
+      {
+        key: 'lab', title: 'L*a*b* — a lumpy solid', colour: '#f7d774',
+        axes: [['a*', [1, 0, 0]], ['b*', [0, 1, 0]], ['L*', [0, 0, 1]]],
+        gist: 'Perpendicular axes again, but perceptual — so the reachable set is a <b>lumpy blob</b>, not a neat shape.'
+      }
+    ];
+
+    const canvases = VIEWS.map(() => h('canvas', {
+      style: `width:${SZ}px;height:${SZ}px;cursor:grab;touch-action:none`
+    }));
+    root.appendChild(h('div', { class: 'row', style: 'gap:.9em;align-items:flex-start' },
+      VIEWS.map((v, i) => {
+        // h() sends unknown keys to setAttribute, so innerHTML has to be set as a property
+        const gist = h('div', { class: 'sp-int', style: 'text-align:center' });
+        gist.innerHTML = v.gist;
+        return h('div', { class: 'col', style: 'gap:.25em;width:' + SZ + 'px' }, [
+          h('div', { class: 'sp-name', style: `color:${v.colour};text-align:center` }, [v.title]),
+          canvases[i], gist
+        ]);
+      })));
+    root.appendChild(h('div', { class: 'caption', style: 'margin-top:.5em;text-align:center' }, [
+      'Every dot is the same colour in all three pictures — drag any one of them to rotate all three together.'
+    ]));
+
+    // drag anywhere rotates all three, because they are one object
+    canvases.forEach(cv => {
+      cv.addEventListener('pointerdown', e => {
+        drag = { x: e.clientX, y: e.clientY, yaw, pitch };
+        // capture keeps the drag alive outside the canvas, but throws for a
+        // pointer id the browser does not know about — never let that kill the drag
+        try { cv.setPointerCapture(e.pointerId); } catch (err) { /* not capturable */ }
+        cv.style.cursor = 'grabbing';
+      });
+      cv.addEventListener('pointermove', e => {
+        if (!drag) return;
+        yaw = drag.yaw + (e.clientX - drag.x) * 0.011;
+        pitch = clamp(drag.pitch + (e.clientY - drag.y) * 0.011, -1.4, 1.4);
+        paint();
+      });
+      const stop = () => { drag = null; cv.style.cursor = 'grab'; };
+      cv.addEventListener('pointerup', stop);
+      cv.addEventListener('pointercancel', stop);
+    });
+
+    function project(p) {
+      const cy = Math.cos(yaw), sy = Math.sin(yaw);
+      const cp = Math.cos(pitch), sp = Math.sin(pitch);
+      const x = p[0] * cy - p[1] * sy;
+      const z0 = p[0] * sy + p[1] * cy;
+      const y = p[2] * cp - z0 * sp;
+      const depth = p[2] * sp + z0 * cp;
+      return [x, y, depth];
+    }
+
+    function paint() {
+      VIEWS.forEach((view, vi) => {
+        const cv = canvases[vi], dpr = Math.min(2, window.devicePixelRatio || 1);
+        cv.width = SZ * dpr; cv.height = SZ * dpr;
+        const g = cv.getContext('2d');
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, SZ, SZ);
+        const R = SZ * 0.30, cx = SZ / 2, cyy = SZ / 2;
+
+        // axes behind the cloud
+        g.lineWidth = 1; g.font = '10px ' + css('--mono'); g.textAlign = 'center';
+        view.axes.forEach(([name, dir]) => {
+          if (!name) return;
+          const a = project(dir.map(d => -d * 1.32)), b = project(dir.map(d => d * 1.32));
+          g.strokeStyle = 'rgba(154,167,186,.28)';
+          g.beginPath(); g.moveTo(cx + a[0] * R, cyy - a[1] * R);
+          g.lineTo(cx + b[0] * R, cyy - b[1] * R); g.stroke();
+          g.fillStyle = css('--ink-faint');
+          g.fillText(name, cx + b[0] * R * 1.1, cyy - b[1] * R * 1.1 + 3);
+        });
+
+        // painter's algorithm — far points first
+        const proj = pts.map(p => { const q = project(p[view.key]); return { q, css: p.css }; });
+        proj.sort((a, b) => a.q[2] - b.q[2]);
+        const s = 3.4;
+        for (const { q, css: col } of proj) {
+          g.fillStyle = col;
+          g.fillRect(cx + q[0] * R - s / 2, cyy - q[1] * R - s / 2, s, s);
+        }
+      });
+    }
+    paint();
+    return () => { };
+  };
+
+  /* ---- 1e. One image in four colour spaces, one at a time ---- */
   D.colourSpaces = function (root) {
     const SZ = 250;
     let img = null, space = 'RGB';
@@ -604,8 +735,8 @@
       g.setTransform(1, 0, 0, 1, 0, 0);
 
       const pct = 100 * inside / (N * N);
-      cap.innerHTML = `a*–b* plane at <b>L* = ${L}</b> · the solid region is what sRGB can actually show ` +
-        `(${pct.toFixed(0)}% of this square)`;
+      cap.innerHTML = `a*–b* plane at <b>L* = ${L}</b> · <b>solid</b> = your screen can show it ` +
+        `(${pct.toFixed(0)}% of this square) · <b>faded</b> = it cannot`;
     }
     paint();
     return () => { if (pending !== null) cancelAnimationFrame(pending); };
