@@ -42,21 +42,22 @@ pass** are computed in the browser from the worksheet's own images.
 | 4 · three numbers from a spectrum | drag the peak and width; each of X, Y, Z is drawn as the **shaded overlap area** between the light and one sensitivity curve, so the integral is something you can watch shrink |
 | 5 · two lights, one colour | a smooth spectrum and a three-spike mixture solved to identical XYZ, painted as one swatch with no seam. Push it far enough and the mixture needs a negative weight, which is a gamut boundary |
 | 6 · four colour spaces at once | the same photo split into RGB, HSV, XYZ and Lab side by side. Hue and the two opponent axes get their own colour maps, because they are angles and signed axes rather than intensities |
-| 7 · the same colours, three shapes | the RGB cube, the HSV cylinder and the lumpy Lab solid — **one point set, three coordinate systems**. Drag any of them and all three rotate together |
-| 8 · there and back again | one space at a time, with the true channel ranges, plus the round trip |
-| 9 · pick a pixel | click or drag on the macaws; the pixel is reported in all four spaces at once |
-| 10 · the a\*–b\* plane | L\* slider; a real horizontal slice through the Lab solid, with everything sRGB cannot display faded out |
-| 11 · colour swap | R↔G in RGB vs inverting a\* in Lab, the lecture's own example |
-| 15 · diffuse reflectance | light direction, intensity, reflectance and light colour, with the cos θ curve tracking alongside |
-| 17 · underconstrained | R and I_L are traded with their product held fixed — the world changes, the image does not |
-| 19 · which parameter is changing | the three chessboard images with a magnified inset and **click-to-reveal** answers |
-| 24 · why divide by 255 | contours of the loss and the descent path; the button rescales and the zig-zag disappears |
-| 25 · flatten | shuffle the 784 pixels and see that the MLP would not care |
-| 27 · activations | ReLU, and a softmax whose confidence you can scale |
-| 28 · a conv layer | a real learned 5×5 kernel sweeping a real MNIST digit, building its activation map |
-| 30 · max pooling | 8×8 → 4×4 with every number visible and the winners highlighted |
-| 32 · learned filters | the eight real first-layer kernels |
-| 33 · the whole network | **the trained CNN, running live** — activation maps at both stages and the softmax bars |
+| 7 · the same colours, three shapes | the RGB cube, the HSV cylinder and the lumpy Lab solid — **one point set, three coordinate systems**, drawn as filled surfaces. Drag any of them and all three rotate together |
+| 8 · so why are there so many? | a pros/cons table across RGB, HSV, YCbCr and Lab, plus two colour pairs **exactly 60 apart in RGB** whose perceived difference differs 19× |
+| 9 · there and back again | one space at a time, with the true channel ranges, plus the round trip |
+| 10 · pick a pixel | click or drag on the macaws; the pixel is reported in all four spaces at once |
+| 11 · the a\*–b\* plane | L\* slider; a real horizontal slice through the Lab solid, with everything sRGB cannot display faded out |
+| 12 · colour swap | R↔G in RGB vs inverting a\* in Lab, the lecture's own example |
+| 16 · diffuse reflectance | N and L as unit arrows, N·L drawn as the **projection of L onto N**, and a falloff plot that runs past 90° so the clamp is visible |
+| 18 · underconstrained | R and I_L are traded with their product held fixed — the world changes, the image does not |
+| 20 · which parameter is changing | the three chessboard images with a magnified inset and **click-to-reveal** answers |
+| 25 · why divide by 255 | contours of the loss and the descent path; the button rescales and the zig-zag disappears |
+| 26 · flatten | shuffle all 784 pixels and watch one 3×3 neighbourhood scatter — with a verdict for each model |
+| 28 · activations | ReLU, and a softmax whose confidence you can scale |
+| 29 · a conv layer | a real learned 5×5 kernel sweeping a real MNIST digit, building its activation map |
+| 31 · max pooling | 8×8 → 4×4 with every number visible and the winners highlighted |
+| 33 · learned filters | the eight real first-layer kernels |
+| 34 · the whole network | **the trained CNN, running live** — activation maps at both stages and the softmax bars |
 
 ## The CNN is real
 
@@ -69,7 +70,7 @@ Conv2D(8, 5×5, relu) → MaxPool(2×2) → Conv2D(16, 5×5, relu) → MaxPool(2
 
 trained offline by `tools/train_cnn.py` (pure numpy, Adam, batch 100, 8 epochs on 48k images).
 **Test accuracy 98.0%**, which matches the Keras run in `worksheet04_solution.ipynb` (98.3%).
-`js/imaging.js` re-implements the forward pass, so slide 33 is genuinely running the network,
+`js/imaging.js` re-implements the forward pass, so slide 34 is genuinely running the network,
 not replaying a recording.
 
 To retrain, or to swap the architecture:
@@ -89,20 +90,21 @@ python3 train_cnn.py            # writes cnn_weights.json
 | 5 · metamers | Two spectra, one colour — and the projector in this room is doing exactly this right now. |
 | 6 · four spaces at once | Cover the labels on the RGB row and ask which is which. They cannot tell. That *is* the point. |
 | 7 · three shapes | Lab is **not** spherical — it is rectangular like RGB. HSV is the polar one; Lab's polar form is LCh. |
-| 10 · the gamut slice | "Faded = your screen cannot show it." Not all of the faded area is even a real colour — see the notes. |
-| 11 · colour swap | R↔G moves brightness; inverting a\* does not. Look at the shadows. |
-| 12 · OpenCV traps | Hue is 0–179. Round trips are lossy. `BGR2XYZ` skips the gamma but `BGR2Lab` does not. |
-| 15 · Lambertian | Camera position does not appear in the equation. That is what "diffuse" buys you. |
-| 17 · underconstrained | Let the silence sit while the image refuses to change. |
-| 19 · the exercise | Do not reveal until they commit. Image 3 has **two** answers. |
-| 20 · edges | The hinge of the workshop: we argue for edges from physics, then watch a network find them. |
-| 22 · last week vs this week | The convolution is unchanged. Only the source of the 25 numbers changed. |
-| 25 · flatten | A CNN's advantage is a *constraint*, not extra capacity. |
-| 26 / 31 · counting | Make them compute 784×16+16 and 5×5×8×16+16 before revealing. The bias and the input-channel factor are what people forget. |
-| 31 · CNN params | `summary()` after training reports 17,984 — that includes Adam's state. The answer is 5,994. |
-| 32 · learned filters | Be honest: they are *partly* edge detectors. All eight sum above zero, where Sobel sums to zero. |
-| 34 · comparison | Quote errors, not accuracy: 460 vs 200 per 10,000, not 95% vs 98%. |
-| 37 · take-homes | Card 4 (underconstrained ⇒ you must add an assumption) and card 8 (test set hygiene). |
+| 8 · why so many | Both swatch pairs are 60 apart in RGB and 19× apart to the eye. That is the whole case against RGB distance. |
+| 11 · the gamut slice | "Faded = your screen cannot show it." Not all of the faded area is even a real colour — see the notes. |
+| 12 · colour swap | R↔G moves brightness; inverting a\* does not. Look at the shadows. |
+| 13 · OpenCV traps | Hue is 0–179. Round trips are lossy. `BGR2XYZ` skips the gamma but `BGR2Lab` does not. |
+| 16 · Lambertian | N·L is a projection, and the flat part of the curve past 90° is the max(0, ·) clamp. |
+| 18 · underconstrained | Let the silence sit while the image refuses to change. |
+| 20 · the exercise | Do not reveal until they commit. Image 1 is the queen's cast shadow; image 3 has **two** answers. |
+| 21 · edges | The hinge of the workshop: we argue for edges from physics, then watch a network find them. |
+| 23 · last week vs this week | The convolution is unchanged. Only the source of the 25 numbers changed. |
+| 26 · flatten | A CNN's advantage is a *constraint*, not extra capacity — the MLP genuinely does not care. |
+| 27 / 32 · counting | Make them compute 784×16+16 and 5×5×8×16+16 before revealing. The bias and the input-channel factor are what people forget. |
+| 32 · CNN params | `summary()` after training reports 17,984 — that includes Adam's state. The answer is 5,994. |
+| 33 · learned filters | Be honest: they are *partly* edge detectors. All eight sum above zero, where Sobel sums to zero. |
+| 35 · comparison | Quote errors, not accuracy: 460 vs 200 per 10,000, not 95% vs 98%. |
+| 38 · take-homes | Card 4 (underconstrained ⇒ you must add an assumption) and card 8 (test set hygiene). |
 
 ## Consistency with the rest of the subject
 
@@ -110,15 +112,18 @@ python3 train_cnn.py            # writes cnn_weights.json
   the trichromatic response integrals, and the invariant/tolerant distinction.
 - The "colour swap" slide is the lecture's own worked example.
 - Part 3 uses **lectures 06–08**'s vocabulary: *activation map* (not "feature map" — worksheet 5
-  uses the other name, and slide 28 says so explicitly), *tolerance* rather than invariance for
+  uses the other name, and slide 29 says so explicitly), *tolerance* rather than invariance for
   pooling, and the note that Keras's `Conv2D` really computes cross-correlation, which lecture 6
   also flags.
-- Slide 29 gives the output-size formula in the CS231n form \(\lfloor (W-F+2P)/S \rfloor + 1\)
+- Slide 30 gives the output-size formula in the CS231n form \(\lfloor (W-F+2P)/S \rfloor + 1\)
   and notes that lecture 7's \(\lceil (W-F+1)/S \rceil\) is the same formula, so students who
   have seen both do not think they conflict.
 - The take-home about blurring before downsampling points back at Workshop 3 and Assignment 1.
 - Regularisation, data augmentation and transfer learning (lectures 7–8) are **not** on the
   slides, because worksheet 4 does not use them — a speaker note flags them as coming.
+- The colour-space comparison follows Justin Johnson's **EECS 442** lecture 4 (Michigan, slide
+  credit to James Hays), including YCbCr, which the worksheet does not mention but which every
+  student has used inside a JPEG.
 - The closing slide points forward to Workshop 5 (VGG16 filter visualisation, depthwise
   separable convolution), which opens with a parameter-counting exercise this deck prepares.
 

@@ -254,6 +254,54 @@
   </aside>
 </section>
 
+<!-- WHY SO MANY -->
+<section>
+  <h3>So why are there so many?</h3>
+  <table class="tbl small" style="font-size:.62em">
+    <tr><th style="width:12%">Space</th><th style="width:44%">What it is best at</th><th>What it costs you</th></tr>
+    <tr><td><b style="color:#6ea8fe">RGB</b></td>
+        <td>what sensors capture and screens emit — universal, and free</td>
+        <td>channels are correlated, and <b>distance does not match perceived difference</b></td></tr>
+    <tr><td><b style="color:#d98fd0">HSV</b></td>
+        <td>picking and thresholding <i>by colour</i>; cheap to convert</td>
+        <td>hue wraps at 360° and is undefined at grey; still not perceptual</td></tr>
+    <tr><td><b style="color:#7fd6a8">YCbCr</b></td>
+        <td>compression and transmission — JPEG keeps <b>Y</b> sharp and throws away
+            most of Cb and Cr, because your eye barely notices</td>
+        <td>a transmission format, not a working space</td></tr>
+    <tr><td><b style="color:#f7d774">L*a*b*</b></td>
+        <td>perceptual distance, and edits that leave lightness alone</td>
+        <td>needs a white point; the most arithmetic of the four</td></tr>
+  </table>
+  <div class="demo" data-demo="colourDistance" style="margin-top:.5em"></div>
+  <div class="takeaway">
+    Pick the space the <b>task</b> needs: RGB to store it, HSV to select it,
+    YCbCr to ship it, Lab to measure or edit it.
+  </div>
+  <aside class="notes">
+    This table follows the comparison in Justin Johnson's EECS 442 lecture 4 at Michigan
+    (slide credit there to James Hays), which is a good one to send students who want a second
+    telling — it is the same four spaces with the same verdicts.
+
+    YCbCr is on the slide because it is the one they have all used without knowing it. Every
+    JPEG and essentially every video codec converts to it and then stores Cb and Cr at half or
+    quarter resolution — "4:2:0 chroma subsampling" — while keeping Y at full resolution. That
+    only works because luminance carries the detail your eye cares about. It is worth 30 seconds
+    because it is the most consequential use of a colour space in everyday computing.
+
+    The two swatch pairs make the RGB row concrete, so do not skip past them. Both pairs are 60
+    apart in RGB. The left pair is a ΔE of about 3, which is near the threshold people can see at
+    all; the right pair is about 67, which is unmistakable. Same number in RGB, twenty times the
+    perceived difference. That is why "nearest colour in RGB" is a bad way to match, segment or
+    cluster colours — and why the fix is one conversion away.
+
+    Honest caveat if a student pushes: Lab is only APPROXIMATELY uniform. ΔE76, the plain
+    Euclidean distance we use here, is the simplest measure; CIE later published ΔE94 and
+    ΔE2000 precisely because ΔE76 is still wrong in places, particularly for saturated colours.
+    The direction of the argument holds regardless.
+  </aside>
+</section>
+
 <!-- ROUND TRIP -->
 <section>
   <h3>There and back again</h3>
@@ -1301,6 +1349,8 @@ model.summary()                                    # call it BEFORE fit()
       <span class="tiny faint mono">visionbook.mit.edu/color.html</span></li>
     <li><b>CS231n notes: Convolutional Networks</b> (Stanford) — shapes, parameter sharing, the conv demo
       <span class="tiny faint mono">cs231n.github.io/convolutional-networks/</span></li>
+    <li><b>EECS 442 lecture 4, <i>Light + Color</i></b> (Michigan) — the same colour-space comparison, told again
+      <span class="tiny faint mono">web.eecs.umich.edu/~justincj/slides/eecs442/winter2020/</span></li>
     <li><b>A guide to convolution arithmetic for deep learning</b> — Dumoulin &amp; Visin's animations
       <span class="tiny faint mono">github.com/vdumoulin/conv_arithmetic</span></li>
     <li><b>Metamers demo</b> (Brown) — sketch two spectra, match their colour

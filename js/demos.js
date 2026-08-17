@@ -558,7 +558,43 @@
     return () => { };
   };
 
-  /* ---- 1e. One image in four colour spaces, one at a time ---- */
+  /* ---- 1e. Why "distances don't make sense" in RGB ----
+     Both pairs sit exactly 60 apart in RGB, yet one is barely distinguishable
+     and the other is obviously two different colours. Numbers are recomputed
+     here rather than hard-coded, so they can be checked. */
+  D.colourDistance = function (root) {
+    // chosen so both pairs sit at EXACTLY 60.0 apart in RGB, not merely close
+    const PAIRS = [
+      { a: [3, 246, 217], b: [63, 246, 217], what: 'two bright cyan-greens' },
+      { a: [4, 60, 41], b: [12, 16, 81], what: 'a dark green and a navy' }
+    ];
+    const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+    const cell = (P) => {
+      const rgbD = dist(P.a, P.b);
+      const dE = dist(IM.rgb2lab(...P.a), IM.rgb2lab(...P.b));
+      const sw = h('div', {
+        style: 'height:76px;width:230px;border:1px solid var(--line);border-radius:10px;' +
+          `background:linear-gradient(90deg, rgb(${P.a}) 0 50%, rgb(${P.b}) 50% 100%)`
+      });
+      const lines = h('div', { class: 'caption', style: 'margin-top:.35em;line-height:1.6' });
+      lines.innerHTML =
+        `${P.what}<br>` +
+        `<span class="mono">distance in RGB &nbsp;<b>${rgbD.toFixed(0)}</b></span><br>` +
+        `<span class="mono">ΔE in Lab &nbsp;<b style="color:var(--accent-3)">${dE.toFixed(1)}</b></span>`;
+      return { wrap: h('div', { class: 'col', style: 'gap:0' }, [sw, lines]), dE };
+    };
+    const c1 = cell(PAIRS[0]), c2 = cell(PAIRS[1]);
+    root.appendChild(h('div', { class: 'row', style: 'gap:2em;align-items:flex-start' },
+      [c1.wrap, c2.wrap]));
+    const note = h('div', { class: 'caption', style: 'margin-top:.6em;text-align:center' });
+    note.innerHTML = `<b>Both pairs are exactly 60 apart in RGB</b> — yet the right-hand pair is about ` +
+      `<b style="color:var(--accent-3)">${(c2.dE / c1.dE).toFixed(0)}×</b> more different to your eye. ` +
+      `Lab says so; RGB cannot.`;
+    root.appendChild(note);
+    return () => { };
+  };
+
+  /* ---- 1f. One image in four colour spaces, one at a time ---- */
   D.colourSpaces = function (root) {
     const SZ = 250;
     let img = null, space = 'RGB';
