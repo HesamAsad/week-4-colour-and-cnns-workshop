@@ -1,0 +1,366 @@
+/* ==================================================================
+   COMP90086 · Workshop 4 — deck theme
+   Same quiet dark theme as Workshop 3 (deliberately: the two decks are
+   one course), extended with colour-science and network-diagram parts.
+   ================================================================== */
+
+:root {
+  --bg:        #0e1117;
+  --bg-soft:   #161b25;
+  --panel:     #1b2230;
+  --line:      #2b3546;
+  --ink:       #e8ecf3;
+  --ink-dim:   #9aa7ba;
+  --ink-faint: #6b7789;
+  --accent:    #6ea8fe;   /* image / input           */
+  --accent-2:  #f2a65a;   /* kernel / learned weights */
+  --accent-3:  #7fd6a8;   /* output / result          */
+  --accent-4:  #d98fd0;   /* colour                   */
+  --accent-5:  #f7d774;   /* light / illumination     */
+  --radius: 14px;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.reveal-viewport { background: var(--bg); }
+
+.reveal {
+  font-family: var(--font);
+  font-size: 30px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+
+/* ---------- headings ---------- */
+
+.reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+  font-family: var(--font);
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  text-shadow: none;
+  margin: 0 0 .5em 0;
+  line-height: 1.15;
+}
+.reveal h1 { font-size: 2.1em; font-weight: 700; }
+.reveal h2 { font-size: 1.5em; }
+.reveal h3 { font-size: 1.12em; color: var(--ink); }
+.reveal h4 { font-size: .82em; color: var(--ink-dim); font-weight: 600; }
+
+.reveal section { text-align: left; }
+.reveal .center { text-align: center; }
+
+/* Slides are laid out top-to-bottom and centred by flexbox rather than by
+   reveal's `center` option — demos fill in asynchronously, and reveal would
+   otherwise measure the height before the figures exist. */
+.reveal .slides > section {
+  height: 100%; flex-direction: column; justify-content: center;
+}
+.reveal .slides > section > * { flex: 0 0 auto; }
+
+/* ---------- text ---------- */
+
+.reveal p { line-height: 1.5; margin: 0 0 .7em; }
+.reveal a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(110,168,254,.35); }
+.reveal ul { margin-left: 1em; }
+.reveal li { margin-bottom: .45em; line-height: 1.45; }
+.reveal li::marker { color: var(--accent); }
+
+.lead   { font-size: 1.15em; color: var(--ink); }
+.dim    { color: var(--ink-dim); }
+.faint  { color: var(--ink-faint); }
+.small  { font-size: .72em; }
+.tiny   { font-size: .58em; }
+.center { text-align: center; }
+.mono   { font-family: var(--mono); }
+.nowrap { white-space: nowrap; }
+
+strong, b { color: #fff; font-weight: 600; }
+em { color: var(--accent-2); font-style: normal; font-weight: 600; }
+
+.eyebrow {
+  font-size: .5em; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--accent); font-weight: 600; margin-bottom: 1.1em;
+}
+
+/* ---------- code ---------- */
+
+.reveal code {
+  font-family: var(--mono); font-size: .78em;
+  background: var(--panel); color: #cfe3ff;
+  padding: .12em .38em; border-radius: 6px;
+}
+.reveal pre { box-shadow: none; width: 100%; margin: .6em 0; font-size: .55em; }
+.reveal pre code {
+  padding: 1em 1.2em; border-radius: var(--radius);
+  background: #0b0e14; border: 1px solid var(--line);
+  max-height: none; line-height: 1.5;
+}
+
+/* ---------- title slide ---------- */
+
+.title-slide { text-align: center; }
+.title-slide .kicker {
+  font-size: .55em; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--accent); font-weight: 600;
+}
+.title-slide h1 { margin: .25em 0 .1em; font-size: 2em; }
+.title-slide .sub { color: var(--ink-dim); font-size: .9em; }
+.title-rule {
+  width: 74px; height: 3px; margin: 1em 0; border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent-4), var(--accent-2));
+}
+/* Dark modules on a white card scan reliably from a projected title slide;
+   the card padding extends the QR code's quiet zone. */
+.qr-invite {
+  display: flex; align-items: center; justify-content: center;
+  gap: .9em; margin-top: 1em; text-align: left;
+}
+.qr-card {
+  flex: 0 0 auto; background: #fff; border-radius: 12px; padding: 8px;
+  line-height: 0; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.qr-card img { display: block; width: 4.2em; height: 4.2em; }
+.qr-text { display: flex; flex-direction: column; gap: .16em; max-width: 24em; }
+.qr-lead { font-size: .62em; font-weight: 600; color: var(--ink); }
+.qr-url  { font-family: var(--mono); font-size: .5em; color: var(--accent); }
+
+/* ---------- section divider ---------- */
+
+.divider { text-align: center; }
+.divider .num {
+  font-size: 4.6em; font-weight: 700; line-height: 1;
+  background: linear-gradient(140deg, var(--accent-4), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.divider h2 { margin-top: .2em; }
+.divider p  { color: var(--ink-dim); }
+
+/* ---------- layout helpers ---------- */
+
+.row  { display: flex; gap: 1.1em; align-items: center; justify-content: center; }
+.row.top { align-items: flex-start; }
+.col  { display: flex; flex-direction: column; gap: .5em; align-items: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1em; align-items: center; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1em; align-items: start; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8em; align-items: start; }
+.stretch-full { width: 100%; }
+
+.card {
+  background: var(--bg-soft); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: .8em 1em;
+}
+.card h4 { margin: 0 0 .35em; }
+
+.figure { text-align: center; }
+.figure canvas, .figure img {
+  border-radius: 10px; border: 1px solid var(--line);
+  display: block; margin: 0 auto; background: #000;
+  image-rendering: auto; max-width: 100%;
+}
+.figure canvas.pixelated { image-rendering: pixelated; }
+.figure canvas.plot { background: transparent; border: none; border-radius: 0; }
+.caption {
+  font-size: .55em; color: var(--ink-dim); margin-top: .5em; letter-spacing: .02em;
+}
+.caption b { color: var(--ink); font-weight: 600; }
+
+/* takeaway strip at the bottom of a slide */
+.takeaway {
+  margin-top: .9em; padding: .55em .9em; font-size: .66em;
+  border-left: 3px solid var(--accent-2);
+  background: rgba(242,166,90,.08); border-radius: 0 10px 10px 0;
+  color: var(--ink);
+}
+.takeaway b { color: var(--accent-2); }
+
+/* a warning strip, for the "this will bite you" facts */
+.gotcha {
+  margin-top: .9em; padding: .55em .9em; font-size: .66em;
+  border-left: 3px solid var(--accent-4);
+  background: rgba(217,143,208,.08); border-radius: 0 10px 10px 0;
+  color: var(--ink);
+}
+.gotcha b { color: var(--accent-4); }
+
+/* pill labels */
+.pill {
+  display: inline-block; font-size: .55em; padding: .18em .6em;
+  border-radius: 999px; border: 1px solid var(--line);
+  color: var(--ink-dim); background: var(--panel); letter-spacing: .04em;
+}
+.pill.colour { color: var(--accent-4); border-color: rgba(217,143,208,.4); }
+.pill.light  { color: var(--accent-5); border-color: rgba(247,215,116,.4); }
+.pill.learn  { color: var(--accent-2); border-color: rgba(242,166,90,.4); }
+.pill.out    { color: var(--accent-3); border-color: rgba(127,214,168,.4); }
+
+/* ---------- controls ---------- */
+
+.controls-row {
+  display: flex; gap: 1em; align-items: center; justify-content: center;
+  flex-wrap: wrap; margin-top: .8em; font-size: .6em; color: var(--ink-dim);
+}
+.controls-row label { display: flex; align-items: center; gap: .5em; }
+
+.reveal input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 190px; height: 4px; border-radius: 4px;
+  background: var(--line); outline: none;
+}
+.reveal input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; border: 3px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.btn {
+  font: inherit; font-size: 1em; cursor: pointer;
+  background: var(--panel); color: var(--ink-dim);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: .35em .9em; transition: all .15s ease;
+}
+.btn:hover { color: var(--ink); border-color: var(--accent); }
+.btn.active { background: var(--accent); color: #0b0e14; border-color: var(--accent); font-weight: 600; }
+.btn-group { display: inline-flex; gap: .35em; flex-wrap: wrap; justify-content: center; }
+
+/* ---------- kernel matrix rendering ---------- */
+
+.kmat { display: inline-grid; gap: 3px; }
+.kmat span {
+  width: 42px; height: 42px; display: grid; place-items: center;
+  font-family: var(--mono); font-size: 14px; border-radius: 6px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+}
+.kmat.sm span { width: 30px; height: 30px; font-size: 11px; }
+
+/* ---------- svg defaults ---------- */
+
+svg { overflow: visible; }
+svg text { font-family: var(--font); fill: var(--ink-dim); }
+
+/* ---------- misc reveal chrome ---------- */
+
+.reveal .progress { color: var(--accent-4); height: 3px; }
+.reveal .controls { color: var(--ink-faint); }
+.reveal .slide-number { background: transparent; color: var(--ink-faint); font-size: 14px; }
+
+.reveal .fragment.fade-in-then-semi-out.visible.current-fragment { opacity: 1; }
+
+/* equation blocks */
+.eq {
+  font-family: var(--mono); font-size: .8em; text-align: center;
+  background: var(--bg-soft); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: .7em 1em; color: #cfe3ff;
+}
+
+/* ---------- MathJax ---------- */
+
+mjx-container[jax="SVG"] { color: var(--ink); }
+mjx-container[jax="SVG"][display="true"] { margin: .35em 0 !important; }
+.eq mjx-container[jax="SVG"][display="true"] { margin: 0 !important; }
+.eq.math { font-family: var(--font); color: var(--ink); font-size: 1em; }
+.caption mjx-container, .takeaway mjx-container, .gotcha mjx-container { color: inherit; }
+
+/* ---------- inline code snippets under a figure ---------- */
+
+.snippet {
+  font-family: var(--mono); font-size: .5em; line-height: 1.6;
+  color: #b7c8e0; background: #0b0e14;
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0; padding: .5em .85em; margin-top: .7em;
+  white-space: pre; overflow-x: auto;
+}
+.snippet .c { color: var(--ink-faint); }
+.snippet .s { color: #9fe0b5; }
+.snippet b  { color: #cfe3ff; font-weight: 600; }
+
+/* ---------- tables ---------- */
+
+.reveal table.tbl { width: 100%; border-collapse: collapse; }
+.reveal table.tbl th {
+  text-align: left; padding: .45em .7em; font-size: .8em; font-weight: 600;
+  color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+}
+.reveal table.tbl td { padding: .5em .7em; border-bottom: 1px solid rgba(43,53,70,.45); }
+.reveal table.tbl tr:last-child td { border-bottom: none; }
+.reveal table.cmp td:first-child { color: #cfe0ff; }
+.reveal table.cmp td:last-child  { color: #ffe0b8; }
+.reveal table.cmp th:first-child { color: var(--accent); }
+.reveal table.cmp th:last-child  { color: var(--accent-2); }
+/* `num` right-aligns — only use it when the whole column is numeric and the
+   header is short. `fig` keeps the mono face but stays flush with its header. */
+.reveal table.tbl td.num { font-family: var(--mono); text-align: right; }
+.reveal table.tbl td.fig { font-family: var(--mono); }
+
+/* ==================================================================
+   Workshop-4 specific components
+   ================================================================== */
+
+/* ---------- colour swatches ---------- */
+
+.swatch {
+  width: 100%; height: 54px; border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.swatch-row { display: flex; gap: .5em; align-items: stretch; }
+.swatch-lbl {
+  font-size: .5em; color: var(--ink-dim); text-align: center;
+  margin-top: .3em; font-family: var(--mono);
+}
+
+/* channel triples: three figures with a coloured label above each */
+.chan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8em; }
+.chan-name {
+  font-size: .55em; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; text-align: center; margin-bottom: .3em;
+}
+
+/* ---------- network layer diagram ---------- */
+
+.netflow {
+  display: flex; align-items: center; justify-content: center;
+  gap: .35em; flex-wrap: wrap; font-size: .55em;
+}
+/* Each layer stacks: name / output shape / parameter count, one per line.
+   They must be block-level or the shape and the count run together. */
+.layer {
+  display: flex; flex-direction: column; gap: .12em;
+  border: 1px solid var(--line); background: var(--bg-soft);
+  border-radius: 10px; padding: .45em .7em; text-align: center; min-width: 5.9em;
+}
+.layer .lname  { font-weight: 600; color: var(--ink); }
+.layer .lshape { font-family: var(--mono); color: var(--accent); font-size: .86em; }
+.layer .lparam {
+  font-family: var(--mono); color: var(--accent-2); font-size: .8em;
+  border-top: 1px solid var(--line); padding-top: .18em; margin-top: .06em;
+}
+.netflow-key {
+  display: flex; gap: 1.4em; justify-content: center;
+  font-size: .5em; color: var(--ink-faint); margin-top: -.2em;
+}
+.netflow-key b { font-weight: 600; }
+.layer.conv  { border-color: rgba(242,166,90,.45); }
+.layer.pool  { border-color: rgba(127,214,168,.45); }
+.layer.dense { border-color: rgba(217,143,208,.45); }
+.netflow .arrow-h { color: var(--ink-faint); font-size: 1.1em; }
+
+/* the softmax probability bar chart */
+.probs { display: grid; grid-template-columns: auto 1fr auto; gap: .18em .5em; align-items: center; font-size: .55em; }
+.probs .d { font-family: var(--mono); color: var(--ink-dim); text-align: right; }
+.probs .bar-wrap { background: var(--panel); border-radius: 4px; height: 12px; overflow: hidden; }
+.probs .bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width .25s ease; }
+.probs .v { font-family: var(--mono); color: var(--ink-faint); font-size: .85em; min-width: 3.4em; }
+.probs .win .d, .probs .win .v { color: var(--accent-3); font-weight: 600; }
+.probs .win .bar { background: var(--accent-3); }
+
+/* a grid of small learned filters */
+.filtgrid { display: flex; gap: .4em; flex-wrap: wrap; justify-content: center; }
+.filtgrid canvas {
+  image-rendering: pixelated; border-radius: 4px; border: 1px solid var(--line);
+}
+
+/* two-column compare with an arrow between */
+.arrow { color: var(--ink-faint); font-size: 1.6em; line-height: 1; display: grid; place-items: center; }

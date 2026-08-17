@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COMP90086 · Workshop 4 — Colour, Light and Learned Filters</title>
+
+  <link rel="stylesheet" href="css/inter.css">
+  <link rel="stylesheet" href="reveal/dist/reset.css">
+  <link rel="stylesheet" href="reveal/dist/reveal.css">
+  <link rel="stylesheet" href="reveal/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="css/deck.css">
+
+  <script>
+    /* MathJax 3, SVG output, vendored locally — no network needed */
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]']],
+        packages: { '[+]': ['color'] }
+      },
+      loader: { load: ['[tex]/color'] },
+      svg: { fontCache: 'global' },
+      options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] },
+      startup: { typeset: false }
+    };
+  </script>
+  <script src="vendor/mathjax/tex-svg.js" id="MathJax-script"></script>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ============================================================ -->
+<!-- TITLE                                                        -->
+<!-- ============================================================ -->
+<section class="title-slide">
+  <div class="kicker">COMP90086 · Computer Vision · Workshop 4</div>
+  <h1>Colour, light<br>and learned filters</h1>
+  <div class="title-rule"></div>
+  <p class="sub">How a scene becomes three numbers per pixel —<br>
+     and what happens when we stop choosing the kernels ourselves.<br>
+     <span class="pill colour">colour</span>
+     &nbsp;·&nbsp;
+     <span class="pill light">light &amp; surfaces</span>
+     &nbsp;·&nbsp;
+     <span class="pill learn">learned filters</span></p>
+  <div class="qr-invite">
+    <div class="qr-card"><img src="assets/qr-workshop.svg" width="132" height="132"
+      alt="QR code linking to the Workshop 4 slides"></div>
+    <div class="qr-text">
+      <span class="qr-lead">Scan to open the interactive slides on your device</span>
+      <span class="qr-url">hesamasad.github.io/<wbr>week-4-colour-and-cnns-workshop</span>
+    </div>
+  </div>
+  <aside class="notes">
+    Goal today: students should leave able to (a) say why colour is three numbers and pick a
+    space for a given job, (b) name the three things that set a pixel's brightness and say
+    which one is changing in a photo, (c) count the parameters of an MLP and a CNN and explain
+    why the CNN wins with fewer.
+
+    Everything here is computed live in the browser — including the CNN, which is the
+    worksheet's own architecture, trained offline and running its real forward pass on this
+    machine. Nothing is a screenshot.
+
+    Timing suggestion for a 2-hour slot: 30 min colour, 25 min light and surfaces, 45 min
+    networks, rest on the worksheet. The colour part is the one to compress if you run late —
+    the exercises there are short.
+  </aside>
+</section>
+
+<!-- ROADMAP -->
+<section>
+  <h2>Where we're going</h2>
+  <div class="grid3" style="align-items:start">
+    <div class="card">
+      <h4 style="color:var(--accent-4)">1 — COLOUR</h4>
+      <ul class="small" style="margin-top:.4em">
+        <li>Why three numbers</li>
+        <li>RGB · HSV · XYZ · Lab</li>
+        <li>Manipulating colour</li>
+        <li>OpenCV's traps</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent-5)">2 — LIGHT &amp; SURFACES</h4>
+      <ul class="small" style="margin-top:.4em">
+        <li>Diffuse reflectance</li>
+        <li>What sets a pixel value</li>
+        <li>Why vision is hard</li>
+        <li>Why edges survive</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent-2)">3 — LEARNED FILTERS</h4>
+      <ul class="small" style="margin-top:.4em">
+        <li>MNIST &amp; preprocessing</li>
+        <li>MLP vs CNN</li>
+        <li>Counting parameters</li>
+        <li>A network, running live</li>
+      </ul>
+    </div>
+  </div>
+  <div class="takeaway">
+    <b>The thread:</b> parts 1 and 2 are about what a pixel value <i>means</i>.
+    Part 3 is about letting a machine discover which combinations of pixels are worth measuring —
+    the same convolution as last week, with the numbers learned instead of chosen.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- PART 1 — COLOUR                                              -->
+<!-- ============================================================ -->
+<section class="divider">
+  <div class="num">1</div>
+  <h2>Colour</h2>
+  <p>An entire spectrum, collapsed into three numbers.</p>
+</section>
+
+<!-- SPECTRUM -->
+<section>
+  <h3>Light arrives as a spectrum — the sensor reports three numbers</h3>
+  <div class="eq math small" style="margin:-.2em 0 .4em;padding:.4em .9em">
+    \( I_R = \displaystyle\int I(\lambda)\,S_R(\lambda)\,d\lambda, \qquad
+       I_G = \int I(\lambda)\,S_G(\lambda)\,d\lambda, \qquad
+       I_B = \int I(\lambda)\,S_B(\lambda)\,d\lambda \)
+  </div>
+  <div class="demo" data-demo="spectrum"></div>
+  <div class="takeaway">
+    Three integrals throw almost everything away. Two completely different spectra that give
+    the same three numbers are <b>metamers</b> — and your screen relies on this, faking every
+    colour with just three narrow primaries.
+  </div>
+  <aside class="notes">
+    Run the peak slider first without commentary and let them watch the green curve (the
+    3-spike mixture) re-solve itself to keep matching. Then say what is happening: the spike
+    weights are solved so the two spectra integrate to identical X, Y, Z.
+
+    The three curves in the lower panel are the CIE 1931 2-degree standard observer functions —
+    the same figure that is in the worksheet, and a standardised stand-in for cone sensitivity.
+    Peak of y-bar at 555 nm is why we are most sensitive to green.
+
+    Push the peak to the far red or far blue and the spike mixture eventually needs a negative
+    weight — the swatch goes hatched. That is a gamut boundary, and it is why a monitor cannot
+    show every colour you can see.
+
+    If asked "why three and not four?" — because we have three cone types. Some people have
+    four (tetrachromacy); most animals differ. The number 3 is biology, not physics.
+  </aside>
+</section>
+
+<!-- FOUR SPACES -->
+<section>
+  <h3>Four ways to write down the same three numbers</h3>
+  <table class="tbl small">
+    <tr><th>Space</th><th>Axes</th><th>Good for</th><th>Watch out</th></tr>
+    <tr><td><b style="color:#6ea8fe">RGB</b></td><td>red, green, blue</td>
+        <td>storage, display — it is what the sensor and screen speak</td>
+        <td>device-dependent; all three channels move together with brightness</td></tr>
+    <tr><td><b style="color:#d98fd0">HSV</b></td><td>hue, saturation, value</td>
+        <td>"select everything reddish" — thresholding by colour</td>
+        <td>hue is an angle, so it wraps; meaningless when saturation ≈ 0</td></tr>
+    <tr><td><b style="color:#7fd6a8">XYZ</b></td><td>the standard observer's response</td>
+        <td>device-<b>in</b>dependent reference; every other space is defined through it</td>
+        <td>not perceptually uniform; Y alone is luminance</td></tr>
+    <tr><td><b style="color:#f7d774">L*a*b*</b></td><td>lightness, green–red, blue–yellow</td>
+        <td>colour edits and distances — equal steps look equally different</td>
+        <td>a* and b* are unbounded in theory; needs a white point (D65 here)</td></tr>
+  </table>
+  <div class="takeaway">
+    They hold the <b>same information</b>, re-parameterised. Choose the space in which your
+    question becomes a simple operation on one axis.
+  </div>
+  <aside class="notes">
+    Emphasise the last line — this is the whole reason the lecture spends time on colour spaces.
+    "Make this image less red" is three coupled changes in RGB and one subtraction in Lab.
+
+    The lecture's ordering is the useful one: RGB is what you get, HSV is an attempt at human
+    vocabulary, XYZ is the physical reference standard, Lab is the perceptual one.
+  </aside>
+</section>
+
+<!-- COLOUR SPACES LAB -->
+<section>
+  <h3>One image, four colour spaces</h3>
+  <p class="small dim" style="margin-top:-.3em">
+    Same picture, four decompositions — then converted straight back.</p>
+  <div class="demo" data-demo="colourSpaces"></div>
+  <div class="takeaway">
+    In <b>RGB</b> every channel looks like a grey version of the photo — they are highly
+    correlated. In <b>HSV</b> and <b>Lab</b>, brightness lives in one channel and colour in the
+    others, which is exactly the separation that makes editing easy.
+  </div>
+  <aside class="notes">
+    This is worksheet exercise 1 (the XYZ and Lab conversions), done live. Click through
+    RGB → Lab and ask them to point at where the two birds separate most cleanly: it is the
+    a* channel, green-to-red, where the blue-and-gold macaw and the red macaw sit at opposite
+    ends.
+
+    Point out the Y channel of XYZ looks like a sensible greyscale — that is because Y is
+    defined as luminance. Compare to X and Z, which look strange on their own.
+
+    The right-hand figure is the round trip. It looks identical — but it is not bit-identical,
+    which is the next slide but one.
+  </aside>
+</section>
+
+<!-- PIXEL PROBE -->
+<section>
+  <h3>Pick a pixel, read it four ways</h3>
+  <div class="demo" data-demo="pixelProbe"></div>
+  <div class="takeaway">
+    Drag from the red macaw to the blue-and-gold one: <b>a*</b> swings from strongly positive
+    to negative while <b>L*</b> barely moves. That single number <i>is</i> "how red versus how
+    green" — which is why the exercise inverts it.
+  </div>
+  <aside class="notes">
+    It opens on the red macaw's plumage. The single most useful drag is from there to the green
+    crown of the blue-and-gold bird — measured on this image, a* goes from +59 to −17, a swing of
+    76, while L* moves only from 52 to 58. Colour changed enormously; lightness barely moved.
+    That is the separation Lab is for.
+
+    Other good spots to call out: the gold breast (b* ≈ +78, a* ≈ +6 — yellow is almost purely a
+    b* excursion), the background leaves (a* ≈ −25), and the pale face patch (high L*, small a*
+    and b*).
+
+    Watch hue on a near-grey pixel — it jumps around wildly, because hue is undefined when
+    saturation goes to zero. Worth saying out loud: that instability is a real source of bugs
+    when people threshold on hue.
+  </aside>
+</section>
+
+<!-- LAB PLANE -->
+<section>
+  <h3>What the a* and b* axes actually are</h3>
+  <div class="demo" data-demo="labPlane"></div>
+  <div class="takeaway">
+    Neutral grey sits at <span class="mono">a* = b* = 0</span>, in the centre.
+    "Invert the a* axis" means <b>reflect this plane left-to-right</b>: every red becomes its
+    matching green, and greys are left untouched.
+  </div>
+  <aside class="notes">
+    Drag L* up and down and point at the faded region — those are Lab colours with no sRGB
+    equivalent. Lab is bigger than any display gamut, which is a feature: it can describe
+    colours your screen cannot show.
+
+    The centre-is-grey fact is the key to the next slide. Because grey is the fixed point,
+    inverting a* leaves the lighting and the neutral parts of the scene alone, and only
+    re-colours what was coloured.
+  </aside>
+</section>
+
+<!-- COLOUR SWAP -->
+<section>
+  <h3>Two ways to "swap the colours" — and why they differ</h3>
+  <div class="demo" data-demo="colourSwap"></div>
+  <div class="takeaway">
+    Swapping <b>R and G</b> also moves brightness around, because both channels carry
+    luminance. Inverting <b>a*</b> changes only the green–red opponent axis:
+    <b>L* is untouched</b>, so the shading and the shadows survive intact.
+  </div>
+  <aside class="notes">
+    This is exactly the "Example: colour swap" slide from the Image Formation II lecture, and
+    worksheet exercise 2. Get them to look at the white beak and the dark shadows: in the RGB
+    swap the tones shift, in the Lab flip they do not.
+
+    Ask: which one would you use to recolour a product photo without making it look badly lit?
+    That is the argument for perceptual spaces in one question.
+
+    Note the code shown does 255 − a on the uint8 array. The solution notebook writes
+    -img_lab[:,:,1] instead, which relies on unsigned wrap-around — see the gotchas slide.
+  </aside>
+</section>
+
+<!-- OPENCV GOTCHAS -->
+<section>
+  <h3>Four things OpenCV will do to you</h3>
+  <div class="grid2 small" style="align-items:start;gap:.9em">
+    <div class="card"><h4 style="color:var(--accent-4)">1 · IMREAD GIVES YOU <span class="mono">BGR</span></h4>
+      <span class="mono">plt.imshow</span> expects RGB, so a raw <span class="mono">imshow(img)</span>
+      shows the birds with red and blue traded.
+      <div class="snippet" style="font-size:.6em;margin-top:.4em">rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)</div></div>
+
+    <div class="card"><h4 style="color:var(--accent-4)">2 · <span class="mono">uint8</span> RANGES ARE SQUASHED</h4>
+      Hue is 0–360° but a byte only holds 0–255, so OpenCV stores <b>H/2 → 0–179</b>.
+      Lab stores <b>L×255/100</b> and <b>a*, b* offset by +128</b>, so neutral grey is 128, not 0.
+      </div>
+
+    <div class="card"><h4 style="color:var(--accent-4)">3 · <span class="mono">BGR2XYZ</span> SKIPS THE GAMMA</h4>
+      It applies the XYZ matrix to the <b>gamma-encoded</b> values. <span class="mono">BGR2Lab</span>
+      linearises first; <span class="mono">BGR2XYZ</span> does not — so the two are not consistent
+      with each other.
+      <div class="tiny faint" style="margin-top:.4em">For mid-red <span class="mono">(128,0,0)</span>:
+        OpenCV gives X = 53, the gamma-correct answer is X ≈ 23.</div></div>
+
+    <div class="card"><h4 style="color:var(--accent-4)">4 · ROUND TRIPS ARE NOT LOSSLESS</h4>
+      Every conversion re-quantises to 8 bits. On <span class="mono">kodim23.png</span>,
+      converting there and back changes ~75–80% of pixels:
+      <div class="tiny faint" style="margin-top:.4em">max |error| — HSV <b>5</b>, Lab <b>8</b>,
+        XYZ <b>24</b>. Convert to float first if you plan several hops.</div></div>
+  </div>
+  <aside class="notes">
+    EMPHASISE: point 4 is the one that gets marks. The worksheet titles a figure "hsv converted
+    image" and it looks identical — it is not. Students should form the habit of measuring:
+    np.max(np.abs(a.astype(int) - b.astype(int))) — the same instrument as last week.
+
+    The numbers on this slide were measured on kodim23.png, not remembered — you can rerun them
+    in one cell if a student challenges you.
+
+    Point 3 is genuinely an inconsistency inside OpenCV, not a student mistake. If someone
+    compares cv2's XYZ against a colour-science library and gets different answers, this is why.
+    Do not let them conclude their code is broken.
+
+    Point 2 explains a very common bug: students write mask = (hsv[:,:,0] > 300) to select
+    magenta and get an empty mask, because hue never exceeds 179.
+
+    A fifth one worth mentioning verbally: the solution notebook inverts a* with
+    -img_lab[:,:,1] on a uint8 array. That is modular arithmetic — it computes 256 − a, which
+    happens to be exactly right, because stored = a* + 128. It is correct but accidental-looking;
+    255 − a is off by one, and doing it in int then clipping is what you would actually write.
+  </aside>
+</section>
+
+<!-- PART 1 RECAP -->
+<section>
+  <h3>Part 1 in one line each</h3>
+  <ul class="small">
+    <li>Colour is <b>three integrals of a spectrum</b>, not three properties of a surface.</li>
+    <li>Because it is three integrals, <b>different spectra can look identical</b> — metamerism
+      is what makes displays possible.</li>
+    <li>Colour spaces are <b>re-parameterisations</b>: same information, different axes.</li>
+    <li>Pick the space where your edit is <b>one operation on one axis</b>.</li>
+    <li>Every conversion is <b>lossy in 8 bits</b>. Measure, don't eyeball.</li>
+  </ul>
+  <div class="takeaway" style="margin-top:1em">
+    Next: that spectrum did not come from nowhere. It is a light source, bounced off a surface,
+    at an angle — and <b>all three of those are baked into every pixel you have</b>.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- PART 2 — LIGHT AND SURFACES                                  -->
+<!-- ============================================================ -->
+<section class="divider">
+  <div class="num">2</div>
+  <h2>Light and surfaces</h2>
+  <p>Where a pixel value actually comes from.</p>
+</section>
+
+<!-- LAMBERTIAN -->
+<section>
+  <h3>Diffuse (Lambertian) reflectance</h3>
+  <div class="eq math" style="margin:-.1em 0 .4em;padding:.5em 1em">
+    \[ {\color{#7fd6a8} I_D(x)} \;=\; {\color{#f7d774} I_L} \;\cdot\;
+       {\color{#f2a65a} R} \;\cdot\; \bigl(\mathbf{N}(x) \cdot \mathbf{L}\bigr) \]
+  </div>
+  <div class="demo" data-demo="lambert"></div>
+  <div class="takeaway">
+    A matte surface scatters light equally in all directions, so <b>where you stand doesn't
+    matter</b> — only how the surface is tilted relative to the light. That single dot product
+    is the entire shading model.
+  </div>
+  <aside class="notes">
+    Drag the direction slider and let them watch the terminator sweep across the sphere. Then
+    make the point that the camera never moves in this demo and would not matter if it did —
+    that is what "diffuse" means, and it is why Lambertian is the easy case.
+
+    Turn R down and I_L up so the sphere returns to the same brightness. Ask: has anything about
+    the object changed? Yes — but not in the image. Hold that thought for two slides.
+
+    The warm/blue light buttons matter for part 1: the light's own colour multiplies the
+    surface's reflectance, which is why white paper looks warm under a tungsten bulb, and why
+    "what colour is this surface" is not a question the image can answer directly.
+
+    Note N·L is clamped at zero — a surface facing away receives nothing. That clamp is the only
+    non-linear thing here, and it is what creates the sharp terminator.
+  </aside>
+</section>
+
+<!-- THE THREE PARAMETERS -->
+<section>
+  <h3>So what sets the R, G, B of one pixel?</h3>
+  <div class="grid3" style="align-items:start">
+    <div class="card"><h4 style="color:var(--accent-5)">\( I_L \) — THE LIGHT</h4>
+      <span class="small">Its intensity <i>and</i> its colour. A red surface under blue light is
+      not red in the image.</span></div>
+    <div class="card"><h4 style="color:var(--accent-2)">\( R \) — THE SURFACE</h4>
+      <span class="small">Reflectance, or albedo: the fraction of each wavelength the material
+      sends back. This is the thing we usually mean by "the object's colour".</span></div>
+    <div class="card"><h4 style="color:var(--accent-3)">\( \mathbf{N}\cdot\mathbf{L} \) — THE GEOMETRY</h4>
+      <span class="small">The angle between the surface normal and the direction to the light.
+      Pure shape, no colour.</span></div>
+  </div>
+  <div class="takeaway">
+    This is part (i) of the worksheet exercise. Three things — <b>light, material, orientation</b> —
+    and the image only ever shows you their <b>product</b>.
+  </div>
+  <aside class="notes">
+    Make them say the three out loud before you reveal the cards. The marks in the worksheet are
+    for naming all three, and students routinely give two: they forget the light's colour, or
+    they forget the angle.
+
+    Say explicitly that "colour of the light source" and "intensity of the light source" are one
+    parameter here (I_L is a per-channel intensity), so listing them separately is fine too.
+
+    Not on the list, deliberately: the camera position. For a Lambertian surface it genuinely
+    does not appear in the equation. For a shiny surface it would — that is the specular case,
+    two slides on.
+  </aside>
+</section>
+
+<!-- UNDERCONSTRAINED -->
+<section>
+  <h3>The problem: only the product reaches the camera</h3>
+  <div class="demo" data-demo="ambiguity"></div>
+  <div class="takeaway">
+    A bright surface in dim light and a dark surface in bright light produce
+    <b>the identical image</b>. Recovering the world from one picture is
+    <b>underconstrained</b> — there are more unknowns than measurements.
+  </div>
+  <aside class="notes">
+    Slide it slowly and let the middle figure stay visibly constant. The point lands harder if
+    nobody says anything for a few seconds.
+
+    This is the lecture's "goal of vision" slide restated as a problem: we want R and N, we
+    measure only I_L · R · (N·L). Three unknowns, one number per channel.
+
+    Every classical solution adds an assumption to close the gap: constant albedo (shape from
+    shading), smooth normals, "lighting is smooth so sharp edges must be reflectance", known
+    boundary normals. None works in general — that is the honest summary in the lecture.
+
+    Modern answer: a network learns a prior over scenes from data instead of you writing one
+    down. Same underconstrained problem, different source of the extra assumption. That is a
+    nice one-sentence bridge to part 3 if you want it early.
+  </aside>
+</section>
+
+<!-- LUMINANCE = REFLECTANCE x ILLUMINATION -->
+<section>
+  <h3>Your visual system solves it anyway — by guessing well</h3>
+  <div class="row" style="gap:1.2em;font-size:.8em;margin:.2em 0 .6em">
+    <div class="eq math" style="padding:.5em 1.1em">
+      \( \text{Luminance} \;=\; {\color{#f2a65a}\text{Reflectance}} \;\times\;
+         {\color{#f7d774}\text{Illumination}} \)
+    </div>
+  </div>
+  <div class="grid2 small" style="align-items:start;gap:1em">
+    <div class="card"><h4>WHAT YOU SEE</h4>
+      In Adelson's checker-shadow figure, two squares with <b>identical pixel values</b> look
+      obviously different — because your visual system has already decided one of them is in
+      shadow and is reporting <i>reflectance</i>, not brightness.</div>
+    <div class="card"><h4>WHAT THAT COSTS</h4>
+      The split is a guess built on assumptions: illumination varies smoothly, shadows have soft
+      edges, surfaces are locally uniform. Break the assumptions and the guess breaks —
+      which is exactly what a visual illusion is.</div>
+  </div>
+  <div class="takeaway">
+    "Lightness constancy" is the visual system doing an <b>inverse problem</b> with a prior.
+    The illusion is not a bug — it is the price of the prior being usually right.
+  </div>
+  <aside class="notes">
+    If you have a projector and 20 spare seconds, pull up persci.mit.edu/gallery/checkershadow
+    live and cover the surround with two fingers so the two squares abut — they visibly become
+    the same grey. It is the single most convincing demo in this part of the subject, and it is
+    Adelson's own page (he is the source cited in the lecture slides).
+
+    Link it back: this is the same decomposition as the lecture's "recovering surface
+    reflectance" figure — an image factored into a reflectance layer and an illumination layer.
+    Intrinsic image decomposition is still an active research area.
+
+    Do not let this become a psychology tangent. The point for this subject is: the problem is
+    underconstrained, so any solution — biological or learned — is importing assumptions.
+  </aside>
+</section>
+
+<!-- THE EXERCISE -->
+<section>
+  <h3>Your turn: which parameter is changing?</h3>
+  <p class="small dim" style="margin-top:-.3em">
+    All surfaces Lambertian, one light source. At the circle — what is changing, and what is constant?</p>
+  <div class="demo" data-demo="chessQuiz"></div>
+  <aside class="notes">
+    Do NOT press reveal until they have committed to an answer. Take a show of hands per image.
+
+    Image 1 — illumination changes. Same square, same wood, flat board: R and N are constant.
+    Image 2 — reflectance changes. Crossing from a light square to a dark one on the same flat,
+      evenly lit board.
+    Image 3 — reflectance AND the surface normal change; the light source is constant. The arrow
+      leaves the flat board and climbs the curved base of the piece.
+
+    The common wrong answer on image 3 is "reflectance only" — students see the colour change and
+    stop. Push them: is the base of that piece facing the same way as the board? No. So N changed
+    too, and you can see it in the gradient up the curve.
+
+    The point of the whole exercise: a change in the image tells you something in the world
+    changed, but NOT which of the three it was. That ambiguity is why the next slide matters.
+  </aside>
+</section>
+
+<!-- EDGES SURVIVE -->
+<section>
+  <h3>Which is why vision leans so hard on edges</h3>
+  <div class="row" style="gap:1.4em;align-items:stretch">
+    <div class="card small" style="flex:1"><h4>THE ARGUMENT</h4>
+      We cannot recover \(R\) or \(\mathbf{N}\) from one image. But a <b>change</b> in
+      \(I_D\) reliably signals a change in <i>something real</i>: an occlusion boundary,
+      a corner, a change of material, or a shadow.
+      <div class="tiny faint" style="margin-top:.5em">Which is why last week's derivative
+        filters are not a side topic — they are the most robust measurement we have.</div></div>
+    <div class="card small" style="flex:1"><h4>AND THEY ARE INVARIANT</h4>
+      <span class="mono">∂I/∂x</span> is <b>invariant</b> to an intensity shift
+      \(I + b\) and <b>tolerant</b> to a contrast change \(aI\).
+      Turn the room lights up and the edges stay put.
+      <div class="tiny faint" style="margin-top:.5em"><b>Invariant to X</b> = does not vary with X.
+        <b>Tolerant to X</b> = mostly insensitive to X. The lecture's distinction, and it is
+        examinable.</div></div>
+  </div>
+  <div class="takeaway">
+    Almost every vision system starts by measuring local change — and, as we are about to see,
+    a CNN <b>rediscovers exactly that</b> in its first layer without being told to.
+  </div>
+  <aside class="notes">
+    This slide is the hinge of the whole workshop. Say the punchline slowly: we are about to
+    train a network that was given no hint about edges, and its first-layer filters will come
+    out looking like the derivative filters we hand-designed last week.
+
+    The invariance list from the lecture is worth running verbally: translation (yes, for a
+    convolution), rotation (no, for an oriented filter), scale (no — a corner stays a corner
+    but an edge's blur changes), 3D pose (no). Ask which of those a CNN gets for free. Answer:
+    translation, and only translation — the rest has to come from data augmentation or
+    architecture.
+
+    If time is short, this slide can be delivered in 60 seconds and still do its job.
+  </aside>
+</section>
+
+<!-- ============================================================ -->
+<!-- PART 3 — LEARNED FILTERS                                     -->
+<!-- ============================================================ -->
+<section class="divider">
+  <div class="num">3</div>
+  <h2>Learned filters</h2>
+  <p>The same convolution — with the numbers chosen by data.</p>
+</section>
+
+<!-- CALLBACK -->
+<section>
+  <h3>Last week we chose the numbers. This week we don't.</h3>
+  <table class="tbl cmp small">
+    <tr><th style="width:46%">Workshop 3</th><th>Workshop 4</th></tr>
+    <tr><td>you write <span class="mono">np.array([[1,0,−1],[2,0,−2],[1,0,−1]])</span></td>
+        <td>you write <span class="mono">layers.Conv2D(8, (5, 5))</span></td></tr>
+    <tr><td>one kernel, chosen because you know what it detects</td>
+        <td>8 kernels, initialised at random</td></tr>
+    <tr><td><span class="mono">cv2.filter2D</span> slides it over the image</td>
+        <td>the layer slides all 8 over the image — identically</td></tr>
+    <tr><td>the output is "the vertical edges"</td>
+        <td>the output is "8 activation maps" — you find out later what they mean</td></tr>
+    <tr><td>you tune it by thinking</td>
+        <td>gradient descent tunes it by measuring the loss</td></tr>
+  </table>
+  <div class="takeaway">
+    <b>The convolution operation does not change at all.</b> What changes is where the 25
+    numbers in each kernel come from.
+  </div>
+  <aside class="notes">
+    Land this hard. Students arrive thinking a CNN is a new kind of mathematics; it is last
+    week's arithmetic with an optimiser attached.
+
+    One honest caveat, worth saying once: Keras's Conv2D actually computes cross-correlation,
+    not convolution — the same thing cv2.filter2D does, and the same distinction we drew last
+    week. Since the weights are learned, the flip is absorbed into the learned values and makes
+    no practical difference. The name is a historical misnomer everyone lives with.
+  </aside>
+</section>
+
+<!-- MNIST -->
+<section>
+  <h3>The dataset: MNIST</h3>
+  <div class="demo" data-demo="mnistStrip"></div>
+  <div class="takeaway">
+    60,000 training and 10,000 test images, 28×28, one 8-bit channel, labels 0–9 —
+    and roughly 6,000 examples per class, so <b>accuracy is a fair metric here</b>.
+    On an unbalanced dataset it would not be.
+  </div>
+  <aside class="notes">
+    The balance point is worth 30 seconds: the worksheet plots the class histogram for a reason.
+    If one class were 90% of the data, a model that always guessed it would score 90% and be
+    useless. Get them in the habit of checking the class distribution before trusting accuracy.
+
+    A caution about MNIST itself: it is solved. 98–99% is unremarkable, and the gap between a
+    good and a bad model here is a fraction of a percent. It is a teaching dataset, not a
+    benchmark. Do not let them conclude their architecture choices are validated by MNIST.
+
+    cmap='binary' is why the digits are black on white — the raw data is white on black.
+  </aside>
+</section>
+
+<!-- NORMALISE -->
+<section>
+  <h3>Why divide by 255?</h3>
+  <div class="demo" data-demo="normalise"></div>
+  <div class="takeaway">
+    Gradient descent takes one step size in <b>every</b> direction at once.
+    If features live on wildly different scales, the loss surface is a stretched valley and
+    no single learning rate suits it.
+  </div>
+  <aside class="notes">
+    Press the button. The contours go round and the path stops zig-zagging.
+
+    Be precise about what the picture is: axes are two weights, contours are the loss, the
+    orange line is the descent path. The stretch factor is the ratio of the input scales.
+
+    For MNIST specifically the effect is milder than the picture suggests — all 784 inputs share
+    the same 0–255 range, so they are already commensurate with each other. The real problems
+    with unscaled inputs here are that the initial activations and gradients are ~255× larger
+    than the initialisation assumes, so Adam's first steps are badly mis-scaled. The lesson
+    generalises to any model where features have genuinely different units.
+
+    Do not oversell this. astype(float)/255 is one line and always safe; that is the whole
+    practical point.
+  </aside>
+</section>
+
+<!-- FLATTEN -->
+<section>
+  <h3>An MLP starts by throwing the geometry away</h3>
+  <div class="demo" data-demo="flatten"></div>
+  <div class="takeaway">
+    <span class="mono">Flatten()</span> turns 28×28 into a list of 784 numbers with no record
+    of which were neighbours. A fully-connected layer treats pixel (0,0) and pixel (27,27) as
+    exactly as related as two adjacent pixels — <b>which is to say, not related at all</b>.
+  </div>
+  <aside class="notes">
+    The shuffle argument is the cleanest way to make this concrete, and it is a real result:
+    permute every image with the same fixed permutation and an MLP's achievable accuracy is
+    unchanged, because a permutation of the inputs can be undone by permuting the first layer's
+    weights. A conv net collapses, because its whole design assumes neighbours mean something.
+
+    So a CNN's advantage is not extra capacity — it is a *constraint*, a prior that says nearby
+    pixels are related and the same pattern is worth looking for everywhere. Constraints that
+    are true about your data are free accuracy.
+
+    If someone asks whether the MLP could learn the spatial structure from data: in principle
+    yes, with enough data; in practice it wastes capacity rediscovering something you already
+    knew.
+  </aside>
+</section>
+
+<!-- MLP ARCHITECTURE -->
+<section>
+  <h3>The MLP, counted</h3>
+  <div class="netflow" style="margin:.2em 0 .7em">
+    <div class="layer"><span class="lname">Input</span><span class="lshape">28×28×1</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer"><span class="lname">Flatten</span><span class="lshape">784</span><span class="lparam">0</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer dense"><span class="lname">Dense 16</span><span class="lshape">16</span><span class="lparam">12,560</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer dense"><span class="lname">Dense 10</span><span class="lshape">10</span><span class="lparam">170</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer"><span class="lname">softmax</span><span class="lshape">p(0…9)</span></div>
+  </div>
+  <div class="eq math small" style="padding:.5em 1em">
+    \( \underbrace{784 \times 16 + 16}_{12{,}560} \;+\;
+       \underbrace{16 \times 10 + 10}_{170} \;=\; \mathbf{12{,}730} \)
+  </div>
+  <div class="takeaway">
+    A dense layer's weights are <b>(inputs × outputs)</b>, plus <b>one bias per output</b>.
+    Nearly every parameter is in the first layer — because it has to look at all 784 pixels at once.
+  </div>
+  <aside class="notes">
+    Make them compute 784×16+16 before you show it. The worksheet explicitly asks them to do
+    this by hand, and the bias term is what people forget.
+
+    Ask: what would happen to the count if we used 128 hidden units instead of 16? 784×128+128 =
+    100,480 — eight times the parameters. Then ask whether that would help. On MNIST, a little.
+    The point is that scaling an MLP means paying linearly in the input size, every time.
+
+    Test accuracy for this model in the solution notebook is about 95.4%. Write it on the board;
+    we are coming back to compare.
+  </aside>
+</section>
+
+<!-- ACTIVATIONS -->
+<section>
+  <h3>The two non-linearities in this model</h3>
+  <div class="demo" data-demo="activations"></div>
+  <div class="takeaway">
+    <b>ReLU</b> sits after each hidden layer: without something non-linear between them,
+    stacked linear layers collapse into a single linear layer.
+    <b>Softmax</b> sits at the very end, turning 10 unconstrained scores into a distribution.
+  </div>
+  <aside class="notes">
+    The "collapse" argument is worth stating as algebra: W2(W1 x) = (W2 W1) x, which is just
+    another matrix. Depth without non-linearity buys nothing. That single line justifies every
+    activation function in the subject.
+
+    Drag the scale slider: multiplying the scores by a larger number makes softmax more
+    confident, by a smaller one more uniform. Nothing about the *ranking* changes — argmax is
+    unaffected. So a confident-looking probability is not evidence of a correct answer.
+
+    Connect to the loss: because the output is a probability distribution and the labels are
+    integers, the loss is SparseCategoricalCrossentropy with from_logits=False — "sparse"
+    because labels are 3, not [0,0,0,1,0,...]. If they one-hot the labels themselves, they must
+    switch to CategoricalCrossentropy.
+  </aside>
+</section>
+
+<!-- CONV LAYER -->
+<section>
+  <h3>A conv layer is last week's sliding window</h3>
+  <div class="demo" data-demo="convStep"></div>
+  <div class="takeaway">
+    One kernel sweeps the whole image and produces one <b>activation map</b>
+    <span class="dim">(lectures 6–8's term; worksheet 5 calls the same thing a <i>feature map</i>)</span>.
+    The same 25 weights are reused at every position — that reuse is called
+    <b>parameter sharing</b>, and it is where the savings come from.
+  </div>
+  <aside class="notes">
+    These are the real trained filters from the network we run in a few slides — click through
+    filters 0 to 7 and note that they genuinely differ: some respond to strokes at one
+    orientation, some to blobs, some are near-dead.
+
+    Two things to say while it sweeps:
+    1. The kernel never changes as it moves. That is what makes the layer translation-equivariant:
+       shift the digit, and the activation map shifts with it.
+    2. 8 filters means 8 of these maps, computed independently and stacked into a 24×24×8 volume.
+
+    Ask why the output is 24 and not 28 — that is the next slide, and it is exactly the "valid"
+    convolution from last week, where we only keep positions at which the kernel fits fully.
+  </aside>
+</section>
+
+<!-- SHAPES -->
+<section>
+  <h3>Where every shape comes from</h3>
+  <div class="eq math" style="margin:.1em 0 .6em;padding:.6em 1em">
+    \[ O \;=\; \left\lfloor \frac{W - F + 2P}{S} \right\rfloor + 1 \]
+  </div>
+  <div class="row small" style="gap:2em;margin-bottom:.5em">
+    <span><b class="mono">W</b> input size</span>
+    <span><b class="mono">F</b> filter size</span>
+    <span><b class="mono">P</b> padding</span>
+    <span><b class="mono">S</b> stride</span>
+  </div>
+  <table class="tbl small">
+    <tr><th>Layer</th><th>W</th><th>F</th><th>P</th><th>S</th><th>Output</th></tr>
+    <tr><td>Conv2D(8, 5×5)</td><td class="num">28</td><td class="num">5</td><td class="num">0</td><td class="num">1</td>
+        <td><span class="mono">(28−5)/1 + 1 = <b>24</b></span></td></tr>
+    <tr><td>MaxPooling2D(2×2)</td><td class="num">24</td><td class="num">2</td><td class="num">0</td><td class="num">2</td>
+        <td><span class="mono">(24−2)/2 + 1 = <b>12</b></span></td></tr>
+    <tr><td>Conv2D(16, 5×5)</td><td class="num">12</td><td class="num">5</td><td class="num">0</td><td class="num">1</td>
+        <td><span class="mono">(12−5)/1 + 1 = <b>8</b></span></td></tr>
+    <tr><td>MaxPooling2D(2×2)</td><td class="num">8</td><td class="num">2</td><td class="num">0</td><td class="num">2</td>
+        <td><span class="mono">(8−2)/2 + 1 = <b>4</b></span></td></tr>
+  </table>
+  <div class="takeaway">
+    Keras defaults to <span class="mono">padding='valid'</span> (P = 0), so every 5×5 conv costs
+    you 4 pixels. Use <span class="mono">padding='same'</span> if you want the size preserved.
+    <div class="tiny faint" style="margin-top:.4em">Lecture 7 writes the no-padding case as
+      \( \lceil (W - F + 1)/S \rceil \) and the padded case as \( \lceil W/S \rceil \).
+      The first is <b>algebraically the same formula</b> as the one above — use whichever you
+      find easier to remember.</div>
+  </div>
+  <aside class="notes">
+    Make them do the arithmetic for at least one row before revealing it — this is exactly the
+    kind of question that appears on the exam and in next week's worksheet.
+
+    On the two forms: lecture 7 (CNNs II) gives ceil((W − F + 1)/S) for the no-padding case,
+    which is the same number as floor((W − F)/S) + 1 for every W, F and S — write n = W − F as
+    qS + r and both come to q + 1. Students sometimes think they have two competing rules; they
+    have one. The CS231n form generalises more readably to non-zero padding, which is why it is
+    on the slide.
+
+    The floor only matters when the stride does not divide evenly; here it never does anything.
+    Say so, so they do not think it is decorative.
+
+    Common student error: forgetting that pooling shrinks by exactly a factor of 2 only because
+    the pool size equals the stride. Keras's MaxPooling2D defaults strides=pool_size, which is
+    why (2,2) gives non-overlapping blocks — the worksheet's table spells this out.
+  </aside>
+</section>
+
+<!-- POOLING -->
+<section>
+  <h3>Max pooling: keep the strongest response, forget where exactly</h3>
+  <div class="demo" data-demo="pooling"></div>
+  <div class="takeaway">
+    It has <b>no parameters</b>. It buys a little tolerance to small shifts, and it shrinks
+    every later layer's work by 4×.
+  </div>
+  <aside class="notes">
+    Emphasise "no parameters" — students often expect pooling to be learned. It is a fixed
+    reduction, which is why it appears with 0 in the summary output.
+
+    Lecture 7 puts max pooling alongside two alternatives, worth naming here so the worksheet
+    connects: strided convolution (cheapest, but the window skips over parts of the image) and
+    average pooling (blurs over features, so strong responses get diluted). Max pooling is the
+    one most likely to preserve the strongest feature, at the cost of being the slowest of the
+    three. Note also that "tolerance to small shifts" is the lecture's careful wording — pooling
+    does not buy true invariance.
+
+    The trade: throwing away three quarters of the positions is exactly downsampling, and last
+    week we spent a whole session on why downsampling without pre-filtering causes aliasing.
+    Max pooling is not a low-pass filter. If you have 30 seconds, mention Zhang (ICML 2019),
+    "Making Convolutional Networks Shift-Invariant Again" — blur before the stride and CNNs get
+    measurably more shift-stable. Same argument as Assignment 1, applied inside a network.
+
+    That link back to Week 3 is the most valuable thing on this slide.
+  </aside>
+</section>
+
+<!-- THE CNN -->
+<section>
+  <h3>The worksheet's CNN, layer by layer</h3>
+  <div class="netflow" style="margin:.1em 0 .6em">
+    <div class="layer"><span class="lname">Input</span><span class="lshape">28×28×1</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer conv"><span class="lname">Conv 8@5×5</span><span class="lshape">24×24×8</span><span class="lparam">208</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer pool"><span class="lname">MaxPool 2×2</span><span class="lshape">12×12×8</span><span class="lparam">0</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer conv"><span class="lname">Conv 16@5×5</span><span class="lshape">8×8×16</span><span class="lparam">3,216</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer pool"><span class="lname">MaxPool 2×2</span><span class="lshape">4×4×16</span><span class="lparam">0</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer"><span class="lname">Flatten</span><span class="lshape">256</span><span class="lparam">0</span></div>
+    <span class="arrow-h">→</span>
+    <div class="layer dense"><span class="lname">Dense 10</span><span class="lshape">10</span><span class="lparam">2,570</span></div>
+  </div>
+  <div class="netflow-key">
+    <span><b style="color:var(--accent)">blue</b> = output shape</span>
+    <span><b style="color:var(--accent-2)">orange</b> = trainable parameters</span>
+  </div>
+  <div class="eq math small" style="padding:.5em 1em;margin-top:.5em">
+    \( \underbrace{(5\!\times\!5\!\times\!1)\!\times\!8 + 8}_{208} \;+\;
+       \underbrace{(5\!\times\!5\!\times\!8)\!\times\!16 + 16}_{3{,}216} \;+\;
+       \underbrace{256\!\times\!10 + 10}_{2{,}570} \;=\; \mathbf{5{,}994} \)
+  </div>
+  <div class="takeaway">
+    A conv layer's cost is <b>(filter area × input channels) × filters, plus one bias per
+    filter</b> — and crucially it does <b>not</b> depend on the image size.
+  </div>
+  <aside class="notes">
+    The "does not depend on image size" point is the one to hammer. Feed this same layer a
+    1000×1000 image and it still has 208 parameters — it just produces a bigger activation map.
+    A dense layer cannot say that.
+
+    The factor students miss is the input-channel term in layer 2: each of the 16 filters is
+    5×5×8, not 5×5, because it must span all eight incoming activation maps. Make them write out
+    5*5*8*16+16 explicitly.
+
+    GOTCHA to warn them about: in Keras 3, calling cnn.summary() AFTER training reports
+    "Total params: 17,984" — that is 5,994 trainable plus 11,990 Adam optimiser states (two per
+    weight). The trainable count is the one the worksheet is asking for. Call summary() before
+    fit() and you will see 5,994 alone.
+  </aside>
+</section>
+
+<!-- LEARNED FILTERS -->
+<section>
+  <h3>What it actually learned</h3>
+  <div class="demo" data-demo="learnedFilters"></div>
+  <div class="takeaway">
+    Several are clear <b>oriented light-to-dark ramps</b> — last week's derivative filters,
+    discovered rather than designed. But look again: unlike Sobel, most of these
+    <b>sum well above zero</b>, so they measure "how much ink is here" and "which way it runs"
+    at the same time.
+  </div>
+  <aside class="notes">
+    This is the payoff for the "why edges survive" slide in part 2. Say it explicitly: we argued
+    from physics that local change is the robust thing to measure, and a network given nothing
+    but pixels and labels partly rediscovered it.
+
+    But do NOT oversell the resemblance — the honest reading is the interesting one. Measured on
+    these actual weights: filters 0, 3 and 7 have strong directional gradients and really do look
+    like oriented derivative operators. The other five are weaker and more diffuse. And every one
+    of the eight has a positive weight sum, between +0.34 and +2.39, where a Sobel kernel sums to
+    exactly zero.
+
+    That difference is the lesson. A hand-designed edge filter is built to ignore absolute
+    brightness. This network was never asked to; on MNIST, "is there ink in this patch" is a
+    genuinely useful feature, so it learned filters that report both. Learned features answer the
+    task you set, not the task in the textbook.
+
+    All eight are active — none is dead — so do not claim otherwise if a student asks.
+
+    Also worth flagging: at 5×5 with only 8 filters on MNIST, these are much less clean than the
+    famous Gabor-like filters in AlexNet's first layer on ImageNet. Next week's worksheet
+    visualises VGG16's, which are far more striking.
+
+    If asked how these were obtained: this exact architecture was trained offline in numpy, and
+    these are its real weights; the next slide runs the real forward pass in the browser.
+  </aside>
+</section>
+
+<!-- LIVE CNN -->
+<section>
+  <h3>The whole network, running right now</h3>
+  <div class="demo" data-demo="cnnLive"></div>
+  <div class="takeaway">
+    Sharp, digit-shaped responses early; small, abstract, hard-to-read maps late.
+    That progression — <b>from where the strokes are, to what the strokes mean</b> —
+    is the whole idea of a deep network.
+  </div>
+  <aside class="notes">
+    Click through several digits. Ask them to watch the 4×4 maps at the end: they are no longer
+    readable as pictures, but the classifier reads them perfectly. Representations do not have to
+    be human-legible to be useful.
+
+    Find a digit where the softmax is not near-certain (some of the 8s and 9s) and use it to make
+    the point that the second-place class is usually a visually plausible confusion — the model's
+    mistakes are structured, not random.
+
+    Worth stating: this is a real forward pass over the 5,994 trained weights, computed in
+    JavaScript on this laptop, with no network connection. That is how small this model is.
+    Test accuracy of these weights is 98.0%, matching the notebook's Keras run.
+  </aside>
+</section>
+
+<!-- COMPARISON -->
+<section>
+  <h3>MLP vs CNN — the answer to the worksheet's last question</h3>
+  <table class="tbl small">
+    <tr><th></th><th>MLP</th><th>CNN</th></tr>
+    <tr><td>Trainable parameters</td><td class="fig">12,730</td>
+        <td class="fig" style="color:var(--accent-3)"><b>5,994</b></td></tr>
+    <tr><td>Test accuracy</td><td class="fig">≈ 95.4%</td>
+        <td class="fig" style="color:var(--accent-3)"><b>≈ 98.0%</b></td></tr>
+    <tr><td>Errors per 10,000 test digits</td><td class="fig">≈ 460</td>
+        <td class="fig" style="color:var(--accent-3)"><b>≈ 200</b></td></tr>
+    <tr><td>Where the parameters sit</td><td>99% in the <i>first</i> dense layer</td>
+        <td>54% in conv 2, 43% in the final dense</td></tr>
+    <tr><td>If the image doubled to 56×56</td><td>≈ 4× the parameters</td>
+        <td>conv layers <b>unchanged</b>; only the layer after <span class="mono">Flatten</span> grows</td></tr>
+    <tr><td>Training time (CPU)</td><td>seconds</td><td>minutes</td></tr>
+  </table>
+  <div class="takeaway">
+    <b>Fewer than half the parameters, and less than half the errors.</b> Not because the CNN
+    is bigger, but because parameter sharing and locality are <i>true</i> of images — so the
+    constraint costs nothing and saves a great deal.
+  </div>
+  <aside class="notes">
+    The error-count row is there because "95% vs 98%" sounds like a small gap and "460 errors vs
+    200" does not. Same numbers, honest framing. Use it.
+
+    Be precise on the last two rows, because the tempting slogan is wrong:
+
+    - The CNN's parameters are NOT mostly in the dense layer here — conv 2 is the biggest single
+      block at 3,216 of 5,994 (54%), because each of its 16 filters spans all 8 incoming channels.
+    - "A CNN doesn't care about image size" is only true of the CONV layers. Double the input to
+      56×56 and the conv layers still hold 208 + 3,216, but the flatten goes from 256 to 1,936, so
+      the final dense jumps from 2,570 to 19,370 — a 3.8× total, barely better than the MLP's 3.96×.
+
+    That second point is worth the extra thirty seconds: it is exactly why real architectures
+    replace flatten-then-dense with global average pooling, and it is the reason "where do the
+    parameters actually live" is a question worth asking of every model.
+
+    Note also the CNN is slower per epoch despite having fewer parameters — parameter count and
+    compute are different resources. Students conflate these constantly.
+
+    Caveat to state plainly: these are single-run numbers on an easy dataset, with different
+    epoch counts (20 for the MLP, 10 for the CNN). The direction of the result is robust; the
+    exact figures are not, and their own runs will differ by a few tenths of a percent.
+  </aside>
+</section>
+
+<!-- ============================================================ -->
+<!-- TAKE-HOMES                                                   -->
+<!-- ============================================================ -->
+<section class="divider">
+  <div class="num">4</div>
+  <h2>What to carry out of this room</h2>
+  <p>Habits that outlast the worksheet.</p>
+</section>
+
+<section>
+  <h3>Take-homes — colour and light</h3>
+  <div class="grid2 small" style="align-items:start;gap:.9em">
+    <div class="card"><h4 style="color:var(--accent-4)">1 · CHOOSE THE SPACE, THEN THE OPERATION</h4>
+      Before writing a colour manipulation, ask which axis of which space your intent is a
+      single move along. If the answer is "three coupled changes in RGB", you are in the wrong
+      space.
+      <div class="tiny faint" style="margin-top:.4em">"Keep the lighting, change the hue" is
+        one subtraction in Lab and a mess in RGB.</div></div>
+
+    <div class="card"><h4 style="color:var(--accent-4)">2 · A CONVERSION IS A COMPUTATION, NOT A RELABELLING</h4>
+      Every hop through <span class="mono">cvtColor</span> quantises, clips, and may or may not
+      linearise. Convert to float once, do all your work, convert back once.
+      <div class="tiny faint" style="margin-top:.4em">And check the ranges — the one that bites
+        is hue at 0–179.</div></div>
+
+    <div class="card"><h4 style="color:var(--accent-5)">3 · A PIXEL IS A PRODUCT, NOT A PROPERTY</h4>
+      \(I_D = I_L \cdot R \cdot (\mathbf{N}\cdot\mathbf{L})\). When something in an image
+      changes, the useful question is not "what colour is that" but
+      <i>which of the three moved?</i>
+      <div class="tiny faint" style="margin-top:.4em">Light, material, orientation. Getting into
+        the habit of listing all three is most of the marks on this kind of question.</div></div>
+
+    <div class="card"><h4 style="color:var(--accent-5)">4 · UNDERCONSTRAINED MEANS YOU MUST ADD SOMETHING</h4>
+      One image, three unknowns. Every method that recovers shape or reflectance is smuggling in
+      an assumption — smooth lighting, constant albedo, a learned prior.
+      <div class="tiny faint" style="margin-top:.4em">Name the assumption out loud and you will
+        predict where the method fails.</div></div>
+  </div>
+  <aside class="notes">
+    EMPHASISE card 4. It is the single most transferable idea in this half of the subject, and it
+    reappears in stereo, in optical flow, and in every generative model later in the course.
+    "What extra assumption is this method making?" is a question that never stops being useful.
+
+    Card 3 is the exam-technique one. Students lose marks by answering "the surface is darker"
+    when the question asked which parameters changed.
+  </aside>
+</section>
+
+<section>
+  <h3>Take-homes — learning</h3>
+  <div class="grid2 small" style="align-items:start;gap:.9em">
+    <div class="card"><h4 style="color:var(--accent-2)">5 · COUNT THE PARAMETERS BEFORE YOU TRAIN</h4>
+      <span class="mono">(F·F·C<sub>in</sub>)·C<sub>out</sub> + C<sub>out</sub></span> for conv,
+      <span class="mono">in·out + out</span> for dense. It takes ten seconds and tells you where
+      your model's capacity actually is.
+      <div class="tiny faint" style="margin-top:.4em">Do the sum rather than guessing: in today's
+        CNN it is the <i>second conv</i> layer that dominates, not the dense one — and that only
+        flips as the input grows.</div></div>
+
+    <div class="card"><h4 style="color:var(--accent-2)">6 · AN ARCHITECTURE IS A SET OF ASSUMPTIONS</h4>
+      Convolution assumes nearby pixels are related and that a useful pattern is worth finding
+      everywhere. Those are <i>claims about images</i>, and they are why the CNN wins with
+      fewer parameters.
+      <div class="tiny faint" style="margin-top:.4em">When an architecture underperforms, ask
+        which of its assumptions your data violates.</div></div>
+
+    <div class="card"><h4 style="color:var(--accent-3)">7 · ACCURACY IS NOT A RESULT ON ITS OWN</h4>
+      Report it against a baseline, on a balanced set, from more than one run — and prefer error
+      counts when the numbers are close to 100%.
+      <div class="tiny faint" style="margin-top:.4em">95% vs 98% sounds marginal.
+        460 errors vs 200 does not. Same data.</div></div>
+
+    <div class="card"><h4 style="color:var(--accent-3)">8 · TRAIN, VALIDATION AND TEST ARE THREE DIFFERENT THINGS</h4>
+      <span class="mono">validation_split=0.2</span> carves the validation set out of the
+      training data. It guides your choices; it does not measure them.
+      <div class="tiny faint" style="margin-top:.4em">The moment you tune anything against the
+        test set, it stops being a test set.</div></div>
+  </div>
+  <aside class="notes">
+    EMPHASISE card 8. It is the one with real consequences for the assignment and the project.
+    Say plainly: if you pick your epoch count by looking at test accuracy, your reported test
+    accuracy is optimistically biased and no longer means what you claim it means.
+
+    Card 5 connects directly to next week's worksheet, which opens with a parameter-counting
+    exercise on a larger network. If they can do the two counts on today's slides, that question
+    is free marks.
+
+    Card 6 is the conceptual bridge to everything after this: transformers relax the locality
+    assumption, and pay for it with data.
+
+    Deliberately NOT covered today, because the worksheet does not use them, but flag that they
+    are coming so nobody thinks this model is complete: regularisation (L1/L2, dropout, early
+    stopping) and data augmentation, both in lecture 7, and transfer learning in lecture 8. Our
+    CNN has no regularisation at all — it does not need it on MNIST, and that is itself worth
+    saying, because the lectures introduce regularisation as the response to overfitting on
+    harder datasets.
+  </aside>
+</section>
+
+<!-- ============================================================ -->
+<!-- EXERCISES                                                    -->
+<!-- ============================================================ -->
+<section class="divider">
+  <div class="num">5</div>
+  <h2>Your turn</h2>
+  <p>worksheet04.ipynb</p>
+</section>
+
+<section>
+  <h3>The five exercises</h3>
+  <div class="grid2 small" style="align-items:start;gap:.8em">
+    <div class="card"><h4>1 · RGB → XYZ AND RGB → Lab</h4>
+      Convert, show each channel, convert back.
+      <div class="tiny faint" style="margin-top:.4em">Show channels with
+        <span class="mono">cmap='gray'</span> — they are single-channel, not colour.</div></div>
+
+    <div class="card"><h4>2 · INVERT THE a* AXIS</h4>
+      Convert to Lab, flip <span class="mono">a</span>, convert back.
+      <div class="tiny faint" style="margin-top:.4em">Neutral is stored at 128, not 0 — so the
+        flip is <span class="mono">255 − a</span>, not <span class="mono">−a</span> on a raw
+        <span class="mono">uint8</span>. Compare against the R↔G swap.</div></div>
+
+    <div class="card"><h4>3 · WHICH PARAMETER IS CHANGING?</h4>
+      The three chessboard images: name the parameters, then say which move and which hold.
+      <div class="tiny faint" style="margin-top:.4em">Part (i) wants all three named. Part (ii)
+        wants a decision per image — and image 3 has two answers.</div></div>
+
+    <div class="card"><h4>4 · RESHAPE FOR KERAS</h4>
+      Make the input 4-D: <span class="mono">(N, 28, 28, 1)</span>.
+      <div class="tiny faint" style="margin-top:.4em"><span class="mono">np.expand_dims(x, axis=-1)</span>.
+        Do this <b>before</b> the visualisation cell — it indexes
+        <span class="mono">[s,:,:,0]</span> and will fail otherwise.</div></div>
+
+    <div class="card" style="grid-column:1/-1"><h4>5 · BUILD THE CNN</h4>
+      Fill in the four missing layers, train it, then answer: how does it compare with the MLP
+      on <b>parameter count</b> and <b>test accuracy</b>?
+      <div class="tiny faint" style="margin-top:.4em">Read the table in the worksheet literally —
+        8 then 16 filters, 5×5, stride 1, ReLU, with 2×2 pooling after each. Then check your
+        hand-computed parameter counts against <span class="mono">summary()</span>.</div></div>
+  </div>
+  <div class="gotcha">
+    <b>Heads-up on the notebook:</b> the exercises restart their numbering halfway through
+    (there are two "Exercise 1"s and two "Exercise 2"s), and the shading question is labelled
+    <b>Exercise 5</b> in your copy but <b>Exercise 3</b> in the solutions. Go by the section
+    heading, not the number.
+  </div>
+  <aside class="notes">
+    Walk the room in this order of likely trouble:
+
+    Exercise 2 — the uint8 inversion. Many will write -img_lab[:,:,1] because the solution does.
+    That works by modular arithmetic (it computes 256 − a) but it is not what anyone means to
+    write, and it silently misbehaves at a = 0. Get them to do it in int and clip.
+
+    Exercise 4 — the ordering trap. If they run the visualisation cell before doing the
+    expand_dims, they get an IndexError, and it is not obvious why.
+
+    Exercise 5 — the layer-2 parameter count. They will write 5*5*16+16 and get 416 instead of
+    3,216, forgetting the 8 input channels.
+
+    Also warn them: summary() after training shows a bigger "Total params" than the trainable
+    count, because Keras 3 counts Adam's optimiser state. The number the exercise wants is
+    "Trainable params".
+  </aside>
+</section>
+
+<!-- CHEAT SHEET -->
+<section>
+  <h3>Cheat sheet</h3>
+  <pre style="font-size:.58em"><code data-trim class="language-python">
+# --- colour ----------------------------------------------------------
+img  = cv2.imread(path)                      # BGR, not RGB
+rgb  = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # ...before plt.imshow
+lab  = cv2.cvtColor(img, cv2.COLOR_BGR2Lab)  # uint8: L*255/100, a/b +128
+lab[:, :, 1] = 255 - lab[:, :, 1]            # invert a*: reflect through grey
+out  = cv2.cvtColor(lab, cv2.COLOR_Lab2BGR)
+hsv  = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)  # uint8: H is 0-179, NOT 0-359
+
+# --- networks --------------------------------------------------------
+x = x.astype(float) / 255                    # scale before anything else
+x = np.expand_dims(x, axis=-1)               # (N, 28, 28) -> (N, 28, 28, 1)
+
+model = keras.Sequential([
+    layers.Input((28, 28, 1)),
+    layers.Conv2D(8, (5, 5), activation='relu'),   # -> 24x24x8,   208 params
+    layers.MaxPooling2D((2, 2)),                   # -> 12x12x8,     0 params
+    layers.Conv2D(16, (5, 5), activation='relu'),  # ->  8x8x16,  3216 params
+    layers.MaxPooling2D((2, 2)),                   # ->  4x4x16,     0 params
+    layers.Flatten(),                              # ->     256
+    layers.Dense(10, activation='softmax')])       # ->      10,  2570 params
+model.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+              metrics=['accuracy'])                # "sparse" = labels are ints
+model.summary()                                    # call it BEFORE fit()
+  </code></pre>
+  <div class="takeaway">
+    Output size <span class="mono">(W − F + 2P)/S + 1</span> · conv params
+    <span class="mono">(F·F·C<sub>in</sub>)·C<sub>out</sub> + C<sub>out</sub></span> · dense params
+    <span class="mono">in·out + out</span>.
+  </div>
+</section>
+
+<!-- REFERENCES -->
+<section>
+  <h3>Play with these afterwards</h3>
+  <ul class="small">
+    <li><b>CNN Explainer</b> (Georgia Tech) — click any neuron, see the convolution that made it
+      <span class="tiny faint mono">poloclub.github.io/cnn-explainer/</span></li>
+    <li><b>Adelson's checker-shadow illusion</b> (MIT) — the original, with the proof image
+      <span class="tiny faint mono">persci.mit.edu/gallery/checkershadow</span></li>
+    <li><b>Foundations of Computer Vision</b> (MIT Press) — ch. 8 <i>Colour</i>, ch. 24 <i>ConvNets</i>
+      <span class="tiny faint mono">visionbook.mit.edu/color.html</span></li>
+    <li><b>CS231n notes: Convolutional Networks</b> (Stanford) — shapes, parameter sharing, the conv demo
+      <span class="tiny faint mono">cs231n.github.io/convolutional-networks/</span></li>
+    <li><b>A guide to convolution arithmetic for deep learning</b> — Dumoulin &amp; Visin's animations
+      <span class="tiny faint mono">github.com/vdumoulin/conv_arithmetic</span></li>
+    <li><b>Metamers demo</b> (Brown) — sketch two spectra, match their colour
+      <span class="tiny faint mono">cs.brown.edu/courses/cs123/archive/2020/demos/metamers/</span></li>
+    <li><b>OpenCV colour conversion reference</b> — the exact formulas, including the ranges
+      <span class="tiny faint mono">docs.opencv.org/4.x/de/d25/imgproc_color_conversions.html</span></li>
+  </ul>
+  <div class="takeaway" style="margin-top:.8em">
+    Next week: what those learned filters look like deeper in a <b>real</b> network (VGG16),
+    and how to make convolution cheaper.
+  </div>
+  <aside class="notes">
+    If you recommend only one, make it CNN Explainer — it is built for exactly this moment in a
+    course, and it is the same link the Workshop 3 deck ended on.
+
+    The conv_arithmetic animations are the standard reference for padding and stride; worth
+    sending to anyone who found the shape arithmetic slide hard.
+
+    Next week's worksheet opens with a parameter-counting exercise on a bigger CNN, then moves
+    to visualising VGG16's filters and feature maps, and to depthwise separable convolution.
+    Everything on today's part 3 is directly load-bearing for it.
+  </aside>
+</section>
+
+<section class="title-slide">
+  <div class="kicker">End of workshop 4</div>
+  <h1 style="font-size:1.5em">Questions?</h1>
+  <div class="title-rule"></div>
+  <p class="sub small">Press <span class="mono">S</span> for speaker notes ·
+     <span class="mono">O</span> for the slide overview ·
+     <span class="mono">F</span> for fullscreen</p>
+</section>
+
+</div>
+</div>
+
+<script src="reveal/dist/reveal.js"></script>
+<script src="reveal/plugin/notes/notes.js"></script>
+<script src="reveal/plugin/highlight/highlight.js"></script>
+<script src="js/imgdata.js"></script>
+<script src="js/cnndata.js"></script>
+<script src="js/imaging.js"></script>
+<script src="js/demos.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1280, height: 720, margin: 0.055,
+    center: false,
+    display: 'flex',          /* with the CSS below this vertically centres each slide */
+    minScale: 0.2, maxScale: 1.6,
+    hash: true, slideNumber: 'c/t',
+    transition: 'fade', transitionSpeed: 'fast',
+    backgroundTransition: 'none',
+    plugins: [RevealNotes, RevealHighlight]
+  }).then(() => {
+    // Demos build their DOM lazily, so maths has to be typeset after they mount.
+    const typeset = () => {
+      if (!window.MathJax || !MathJax.typesetPromise) return;
+      const s = Reveal.getCurrentSlide();
+      MathJax.typesetPromise(s ? [s] : undefined).then(() => Reveal.layout()).catch(() => { });
+    };
+    const refresh = () => { Demos.mountVisible(); typeset(); };
+    refresh();
+    Reveal.on('slidechanged', refresh);
+    if (window.MathJax && MathJax.startup) MathJax.startup.promise.then(refresh);
+  });
+</script>
+</body>
+</html>
