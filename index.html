@@ -124,7 +124,7 @@
     Each number is the <b>area of the overlap</b> between the light and one sensor's sensitivity.</p>
   <div class="demo" data-demo="trichromacy"></div>
   <div class="takeaway">
-    <span class="mono">\( I_X = \int I(\lambda)\,S_X(\lambda)\,d\lambda \)</span> —
+    \( I_X = \int I(\lambda)\,S_X(\lambda)\,d\lambda \) —
     the integral sign just says <b>"multiply the two curves and measure the area under the
     result"</b>. Do it three times and the entire spectrum is gone, replaced by three numbers.
   </div>
@@ -677,7 +677,7 @@
       <div class="tiny faint" style="margin-top:.5em">Which is why last week's derivative
         filters are not a side topic — they are the most robust measurement we have.</div></div>
     <div class="card small" style="flex:1"><h4>AND THEY ARE INVARIANT</h4>
-      <span class="mono">∂I/∂x</span> is <b>invariant</b> to an intensity shift
+      \( \partial I / \partial x \) is <b>invariant</b> to an intensity shift
       \(I + b\) and <b>tolerant</b> to a contrast change \(aI\).
       Turn the room lights up and the edges stay put.
       <div class="tiny faint" style="margin-top:.5em"><b>Invariant to X</b> = does not vary with X.
@@ -1188,8 +1188,8 @@
   <h3>Take-homes — learning</h3>
   <div class="grid2 small" style="align-items:start;gap:.9em">
     <div class="card"><h4 style="color:var(--accent-2)">5 · COUNT THE PARAMETERS BEFORE YOU TRAIN</h4>
-      <span class="mono">(F·F·C<sub>in</sub>)·C<sub>out</sub> + C<sub>out</sub></span> for conv,
-      <span class="mono">in·out + out</span> for dense. It takes ten seconds and tells you where
+      \( (F\cdot F\cdot C_{\text{in}})\cdot C_{\text{out}} + C_{\text{out}} \) for conv,
+      \( \text{in}\cdot\text{out} + \text{out} \) for dense. It takes ten seconds and tells you where
       your model's capacity actually is.
       <div class="tiny faint" style="margin-top:.4em">Do the sum rather than guessing: in today's
         CNN it is the <i>second conv</i> layer that dominates, not the dense one — and that only
@@ -1331,9 +1331,11 @@ model.compile(optimizer='adam',
 model.summary()                                    # call it BEFORE fit()
   </code></pre>
   <div class="takeaway">
-    Output size <span class="mono">(W − F + 2P)/S + 1</span> · conv params
-    <span class="mono">(F·F·C<sub>in</sub>)·C<sub>out</sub> + C<sub>out</sub></span> · dense params
-    <span class="mono">in·out + out</span>.
+    Output size \( \left\lfloor (W - F + 2P)/S \right\rfloor + 1 \)
+    &ensp;<span class="faint">&bull;</span>&ensp; conv params
+    \( (F\cdot F\cdot C_{\text{in}})\cdot C_{\text{out}} + C_{\text{out}} \)
+    &ensp;<span class="faint">&bull;</span>&ensp; dense params
+    \( \text{in}\cdot\text{out} + \text{out} \)
   </div>
 </section>
 
